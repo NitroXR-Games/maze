@@ -1,0 +1,7 @@
+{
+  "mazeWidth": 10,
+  "mazeHeight": 10,
+  "wallSize": 1.0,
+  "playerSpeed": 0.05,
+  "rotationSpeed": 0.03
+}
