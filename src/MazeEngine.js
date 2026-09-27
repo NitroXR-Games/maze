@@ -1,3 +1,5 @@
+import GameState from './GameState.js';
+
 export class MazeEngine {
   constructor(scene, config) {
     this.scene = scene;

@@ -1,4 +1,3 @@
-import config from '../config.json' assert { type: 'json' };
 import { MazeEngine } from './MazeEngine.js';
 import { Player } from './Player.js';
 import { HUD } from './HUD.js';
@@ -8,13 +7,28 @@ import { AvatarSystem } from './AvatarSystem.js';
 import { LevelEditor } from './LevelEditor.js';
 import GameState from './GameState.js';
 
+let config;
 const scene = new NitroXR.Scene();
-const maze = new MazeEngine(scene, config);
-const player = new Player(scene, config);
-const hud = new HUD(scene);
-const ghosts = new GhostManager(scene);
-const avatars = new AvatarSystem(player);
-const editor = new LevelEditor(scene, maze);
+let maze, player, hud, ghosts, avatars, editor;
+
+async function start() {
+  try {
+    const response = await fetch('../config.json');
+    config = await response.json();
+  } catch (e) {
+    console.error("Failed to load config:", e);
+    config = { mazeWidth: 10, mazeHeight: 10, playerSpeed: 0.05, rotationSpeed: 0.03 };
+  }
+
+  maze = new MazeEngine(scene, config);
+  player = new Player(scene, config);
+  hud = new HUD(scene);
+  ghosts = new GhostManager(scene);
+  avatars = new AvatarSystem(player);
+  editor = new LevelEditor(scene, maze);
+
+  initLevel();
+}
 
 function initLevel(seed = null) {
   scene.clear();
@@ -23,34 +37,22 @@ function initLevel(seed = null) {
   player.entity.setPosition([1, 0.5, 1]);
   
   CloudLeaderboard.getTopScores().then(async scores => {
-    if (scores.length > 0) {
+    if (scores && scores.length > 0) {
       await ghosts.loadGhost(scores[0].userId);
     }
   });
 }
 
-// Handle Daily Challenge input
-function startDailyChallenge() {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const seed = parseInt(today);
-  console.log(`Launching Daily Challenge for seed: ${seed}`);
-  initLevel(seed);
-}
-
-// Initial start
-initLevel();
-
 async function gameLoop(input) {
+  if (!config) return;
   const prevPos = { ...player.position };
   
-  // Editor Logic
   if (input.toggleEditor) {
     editor.toggleEditMode();
   }
   
   if (editor.isEditMode) {
     if (input.interact) {
-      // In a real XR app, we'd raycast to find the cell
       const cellX = Math.round(player.position.x);
       const cellZ = Math.round(player.position.z);
       editor.handleCellInteraction(cellX, cellZ);
@@ -63,7 +65,6 @@ async function gameLoop(input) {
     hud.incrementSteps();
   }
   
-  // Update Hazards
   maze.sentinels.forEach(sentinel => {
     sentinel.update(player.position);
     if (sentinel.checkCollision(player.position)) {
@@ -86,14 +87,8 @@ async function gameLoop(input) {
       if (!GameState.isGameOver()) {
         GameState.setVictory();
         hud.showVictory();
-        
         const finalScore = hud.steps + Math.floor((Date.now() - GameState.startTime) / 1000);
-        const ghostData = { userId: NitroXR.User.id, path: ghosts.getRecording() };
-        
-        await Promise.all([
-          CloudLeaderboard.submitScore(NitroXR.User.id, finalScore),
-          NitroXR.Cloud.submitGhost(ghostData)
-        ]);
+        await CloudLeaderboard.submitScore(NitroXR.User.id, finalScore);
       }
     }
   }
@@ -101,5 +96,6 @@ async function gameLoop(input) {
   scene.render();
 }
 
-NitroXR.onUpdate((input) => gameLoop(input));
-
+start().then(() => {
+  NitroXR.onUpdate((input) => gameLoop(input));
+});
