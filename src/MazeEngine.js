@@ -3,11 +3,28 @@ export class MazeEngine {
     this.scene = scene;
     this.config = config;
     this.walls = [];
-    this.goal = { x: config.mazeWidth - 1, z: config.mazeHeight - 1 };
+    this.sentinels = [];
+    this.goal = { x: 0, z: 0 };
+    this.currentTheme = 'standard';
+    this.themes = {
+      standard: { wall: 'nitro_concrete_wall', goal: 'nitro_gold_glow', floor: 'nitro_gray_floor' },
+      neon: { wall: 'nitro_neon_blue', goal: 'nitro_neon_pink', floor: 'nitro_black_reflective' },
+      ruins: { wall: 'nitro_stone_moss', goal: 'nitro_ancient_torch', floor: 'nitro_dirt_path' }
+    };
+  }
+
+  setTheme(themeId) {
+    this.currentTheme = themeId;
+    const theme = this.themes[themeId];
+    this.walls.forEach(wall => {
+      this.scene.getEntity(`wall_${wall.x}_${wall.z}`).update({ material: theme.wall });
+    });
+    this.scene.getEntity('goal').update({ material: theme.goal });
   }
 
   generate() {
     this.walls = [];
+    this.sentinels = [];
     const width = this.config.mazeWidth + (GameState.currentLevel * 2);
     const height = this.config.mazeHeight + (GameState.currentLevel * 2);
     const grid = Array.from({ length: width }, () => Array(height).fill(true));
@@ -38,8 +55,23 @@ export class MazeEngine {
     this.scene.createEntity('goal', {
       position: [this.goal.x, 0.5, this.goal.z],
       model: 'cube',
-      material: 'nitro_gold_glow'
+      material: this.themes[this.currentTheme].goal
     });
+
+    if (GameState.currentLevel > 1) {
+      const sentinelCount = GameState.currentLevel;
+      for (let i = 0; i < sentinelCount; i++) {
+        const startX = Math.floor(Math.random() * (width - 2)) + 1;
+        const startZ = Math.floor(Math.random() * (height - 2)) + 1;
+        if (!grid[startX][startZ]) {
+          const patrol = [
+            { x: startX, z: startZ },
+            { x: Math.floor(Math.random() * (width - 2)) + 1, z: Math.floor(Math.random() * (height - 2)) + 1 }
+          ];
+          this.sentinels.push(new Sentinel(this.scene, { x: startX, z: startZ }, patrol));
+        }
+      }
+    }
   }
 
   addWall(x, z) {
@@ -47,7 +79,7 @@ export class MazeEngine {
     this.scene.createEntity(`wall_${x}_${z}`, {
       position: [x, 0.5, z],
       model: 'cube',
-      material: 'nitro_concrete_wall'
+      material: this.themes[this.currentTheme].wall
     });
   }
 
