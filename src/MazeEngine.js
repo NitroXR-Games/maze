@@ -8,15 +8,16 @@ export class MazeEngine {
 
   generate() {
     this.walls = [];
-    const { mazeWidth, mazeHeight } = this.config;
-    const grid = Array.from({ length: mazeWidth }, () => Array(mazeHeight).fill(true));
+    const width = this.config.mazeWidth + (GameState.currentLevel * 2);
+    const height = this.config.mazeHeight + (GameState.currentLevel * 2);
+    const grid = Array.from({ length: width }, () => Array(height).fill(true));
 
     const carve = (x, z) => {
       grid[x][z] = false;
       const dirs = [[0, 2], [0, -2], [2, 0], [-2, 0]].sort(() => Math.random() - 0.5);
       for (const [dx, dz] of dirs) {
         const nx = x + dx, nz = z + dz;
-        if (nx > 0 && nx < mazeWidth - 1 && nz > 0 && nz < mazeHeight - 1 && grid[nx][nz]) {
+        if (nx > 0 && nx < width - 1 && nz > 0 && nz < height - 1 && grid[nx][nz]) {
           grid[x + dx / 2][z + dz / 2] = false;
           carve(nx, nz);
         }
@@ -25,20 +26,20 @@ export class MazeEngine {
 
     carve(1, 1);
 
-    for (let x = 0; x < mazeWidth; x++) {
-      for (let z = 0; z < mazeHeight; z++) {
+    for (let x = 0; x < width; x++) {
+      for (let z = 0; z < height; z++) {
         if (grid[x][z]) {
           this.addWall(x, z);
         }
       }
     }
     
+    this.goal = { x: width - 2, z: height - 2 };
     this.scene.createEntity('goal', {
-      position: [mazeWidth - 2, 0.5, mazeHeight - 2],
+      position: [this.goal.x, 0.5, this.goal.z],
       model: 'cube',
       material: 'nitro_gold_glow'
     });
-    this.goal = { x: mazeWidth - 2, z: mazeHeight - 2 };
   }
 
   addWall(x, z) {
