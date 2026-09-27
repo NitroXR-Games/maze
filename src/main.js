@@ -5,6 +5,7 @@ import { HUD } from './HUD.js';
 import { CloudLeaderboard } from './CloudLeaderboard.js';
 import { GhostManager } from './GhostManager.js';
 import { AvatarSystem } from './AvatarSystem.js';
+import { LevelEditor } from './LevelEditor.js';
 import GameState from './GameState.js';
 
 const scene = new NitroXR.Scene();
@@ -13,14 +14,14 @@ const player = new Player(scene, config);
 const hud = new HUD(scene);
 const ghosts = new GhostManager(scene);
 const avatars = new AvatarSystem(player);
+const editor = new LevelEditor(scene, maze);
 
-function initLevel() {
+function initLevel(seed = null) {
   scene.clear();
-  maze.generate();
+  maze.generate(seed);
   player.position = { x: 1, z: 1 };
   player.entity.setPosition([1, 0.5, 1]);
   
-  // Load top ghost for the level
   CloudLeaderboard.getTopScores().then(async scores => {
     if (scores.length > 0) {
       await ghosts.loadGhost(scores[0].userId);
@@ -28,22 +29,43 @@ function initLevel() {
   });
 }
 
+// Handle Daily Challenge input
+function startDailyChallenge() {
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const seed = parseInt(today);
+  console.log(`Launching Daily Challenge for seed: ${seed}`);
+  initLevel(seed);
+}
+
+// Initial start
 initLevel();
 
 async function gameLoop(input) {
   const prevPos = { ...player.position };
-  player.update(input, maze.walls);
   
-  // Record ghost path
-  ghosts.recordPosition(player.position);
+  // Editor Logic
+  if (input.toggleEditor) {
+    editor.toggleEditMode();
+  }
+  
+  if (editor.isEditMode) {
+    if (input.interact) {
+      // In a real XR app, we'd raycast to find the cell
+      const cellX = Math.round(player.position.x);
+      const cellZ = Math.round(player.position.z);
+      editor.handleCellInteraction(cellX, cellZ);
+    }
+  } else {
+    player.update(input, maze.walls);
+  }
   
   if (prevPos.x !== player.position.x || prevPos.z !== player.position.z) {
     hud.incrementSteps();
   }
   
-  // Update Hazards & Ghosts
+  // Update Hazards
   maze.sentinels.forEach(sentinel => {
-    sentinel.update();
+    sentinel.update(player.position);
     if (sentinel.checkCollision(player.position)) {
       player.position = { x: 1, z: 1 };
       player.entity.setPosition([1, 0.5, 1]);
@@ -51,7 +73,6 @@ async function gameLoop(input) {
   });
   ghosts.update();
   
-  // Avatar toggle via input 'C' (hypothetical)
   if (input.changeAvatar) {
     avatars.cycleAvatar();
   }
@@ -81,3 +102,4 @@ async function gameLoop(input) {
 }
 
 NitroXR.onUpdate((input) => gameLoop(input));
+

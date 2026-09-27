@@ -22,9 +22,28 @@ export class MazeEngine {
     this.scene.getEntity('goal').update({ material: theme.goal });
   }
 
-  generate() {
+  generateGoal() {
+    this.goal = { x: this.config.mazeWidth - 2, z: this.config.mazeHeight - 2 };
+    this.scene.createEntity('goal', {
+      position: [this.goal.x, 0.5, this.goal.z],
+      model: 'cube',
+      material: this.themes[this.currentTheme].goal
+    });
+  }
+
+  generate(seed = null) {
     this.walls = [];
     this.sentinels = [];
+    
+    // Use seed for deterministic generation if provided
+    if (seed !== null) {
+      this.currentSeed = seed;
+      Math.random = this.mulberry32(seed);
+    } else {
+      this.currentSeed = null;
+      Math.random = Math.random; 
+    }
+
     const width = this.config.mazeWidth + (GameState.currentLevel * 2);
     const height = this.config.mazeHeight + (GameState.currentLevel * 2);
     const grid = Array.from({ length: width }, () => Array(height).fill(true));
@@ -51,12 +70,7 @@ export class MazeEngine {
       }
     }
     
-    this.goal = { x: width - 2, z: height - 2 };
-    this.scene.createEntity('goal', {
-      position: [this.goal.x, 0.5, this.goal.z],
-      model: 'cube',
-      material: this.themes[this.currentTheme].goal
-    });
+    this.generateGoal();
 
     if (GameState.currentLevel > 1) {
       const sentinelCount = GameState.currentLevel;
@@ -71,6 +85,15 @@ export class MazeEngine {
           this.sentinels.push(new Sentinel(this.scene, { x: startX, z: startZ }, patrol));
         }
       }
+    }
+  }
+
+  mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
     }
   }
 
