@@ -7,7 +7,7 @@ export class MazeEngine {
     this.config = config;
     this.walls = [];
     this.sentinels = [];
-    this.goal = { x: 0, z: 0 };
+    this.goal = null;
     this.currentTheme = 'standard';
     this.themes = {
       standard: { wall: 'maze_wall_concrete', goal: 'maze_goal_portal', floor: 'maze_floor_tile' },
@@ -28,11 +28,28 @@ export class MazeEngine {
   }
 
   async generateGoal() {
-    this.goal = { x: this.config.mazeWidth - 2, z: this.config.mazeHeight - 2 };
+    // this.goal is set by generate() to an open cell; fall back to the
+    // legacy default only when unset (e.g. editor-loaded layouts).
+    if (!this.goal) {
+      this.goal = { x: this.config.mazeWidth - 2, z: this.config.mazeHeight - 2 };
+    }
     await this.scene.createEntity('goal', {
       position: [this.goal.x, 0.5, this.goal.z],
       model: this.themes[this.currentTheme].goal
     });
+  }
+
+  // Farthest open odd cell from spawn: carver only opens odd cells, so an
+  // even-coordinate goal would sit inside a wall (unreachable, invisible).
+  findGoalCell(grid, width, height) {
+    for (let x = width - 2; x > 0; x--) {
+      for (let z = height - 2; z > 0; z--) {
+        if (!grid[x][z] && x % 2 === 1 && z % 2 === 1 && !(x === 1 && z === 1)) {
+          return { x, z };
+        }
+      }
+    }
+    return { x: 1, z: 1 }; // unreachable in practice: spawn cell is open
   }
 
   async generate(seed = null) {
@@ -77,6 +94,7 @@ export class MazeEngine {
     }
     await Promise.all(builds);
 
+    this.goal = this.findGoalCell(grid, width, height);
     await this.generateGoal();
 
     if (GameState.currentLevel > 1) {
