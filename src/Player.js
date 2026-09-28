@@ -19,25 +19,35 @@ export class Player {
     });
   }
 
+  // v2 scheme: moveX/moveZ translate relative to facing (strafe included),
+  // turnLeft/turnRight rotate. Analog magnitudes double as variable speed.
   update(input, walls) {
     if (GameState.isGameOver() || !this.entity) return;
 
     // Frame-rate independent: speeds are defined per 60fps frame.
     const s = (input.deltaTime ?? 0.016) * 60;
+    const clamp1 = (n) => Math.max(-1, Math.min(1, n ?? 0));
 
-    let nextX = this.position.x;
-    let nextZ = this.position.z;
+    let fwd, strafe, turn;
+    if (input.moveX !== undefined || input.moveZ !== undefined) {
+      fwd = -clamp1(input.moveZ);
+      strafe = clamp1(input.moveX);
+      turn = clamp1(input.turn ?? ((input.turnRight ? 1 : 0) - (input.turnLeft ? 1 : 0)));
+    } else {
+      // Legacy boolean-only input (e.g. scripted tests).
+      fwd = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
+      strafe = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+      turn = (input.turnRight ? 1 : 0) - (input.turnLeft ? 1 : 0);
+    }
 
-    if (input.forward) {
-      nextX += Math.sin(this.rotation) * this.config.playerSpeed * s;
-      nextZ += Math.cos(this.rotation) * this.config.playerSpeed * s;
-    }
-    if (input.backward) {
-      nextX -= Math.sin(this.rotation) * this.config.playerSpeed * s;
-      nextZ -= Math.cos(this.rotation) * this.config.playerSpeed * s;
-    }
-    if (input.left) this.rotation -= this.config.rotationSpeed * s;
-    if (input.right) this.rotation += this.config.rotationSpeed * s;
+    const fx = Math.sin(this.rotation);
+    const fz = Math.cos(this.rotation);
+    const rx = -fz;
+    const rz = fx;
+
+    const nextX = this.position.x + (fx * fwd + rx * strafe) * this.config.playerSpeed * s;
+    const nextZ = this.position.z + (fz * fwd + rz * strafe) * this.config.playerSpeed * s;
+    this.rotation += turn * this.config.rotationSpeed * s;
 
     if (!this.checkCollision(nextX, nextZ, walls)) {
       this.position.x = nextX;
