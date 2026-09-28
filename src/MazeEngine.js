@@ -40,10 +40,15 @@ export class MazeEngine {
   }
 
   async generateGoal() {
-    // this.goal is set by generate() to an open cell; fall back to the
-    // legacy default only when unset (e.g. editor-loaded layouts).
-    if (!this.goal) {
-      this.goal = { x: this.config.mazeWidth - 2, z: this.config.mazeHeight - 2 };
+    // this.goal is set by generate() to an open cell; fall back to a safe
+    // search if unset (e.g. editor-loaded layouts) to never place the portal
+    // inside a wall.
+    if (!this.goal || this.walls.some(w => w.x === this.goal.x && w.z === this.goal.z)) {
+      this.goal = this.findGoalCell(
+        this.walls.reduce((g, w) => { g[w.x] = g[w.x] || []; g[w.x][w.z] = true; return g; }, []),
+        this.width || this.config.mazeWidth + GameState.currentLevel * 2,
+        this.height || this.config.mazeHeight + GameState.currentLevel * 2
+      );
     }
     await this.scene.createEntity('goal', {
       position: [this.goal.x, 0.5, this.goal.z],
