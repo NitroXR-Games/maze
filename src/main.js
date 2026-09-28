@@ -9,10 +9,10 @@ import GameState from './GameState.js';
 import { FrameGate } from './FrameGate.js';
 import { CameraRig } from './CameraRig.js';
 import { resolveCatches } from './Sentinel.js';
-import { NitroXR, getPlayerId } from './nitroxr.js';
+import { NitroXR, getPlayerId, AudioManager } from './nitroxr.js';
 
 let config;
-let scene, maze, player, hud, ghosts, avatars, editor, camRig;
+let scene, maze, player, hud, ghosts, avatars, editor, camRig, audio;
 const playerId = getPlayerId();
 
 // Seconds of post-catch invulnerability.
@@ -48,6 +48,14 @@ async function start() {
   camRig = new CameraRig(scene, maze);
   hud.setView(camRig.label);
   bindViewToggle();
+
+  // Audio: start background music (will auto-resume on first user gesture)
+  audio = new AudioManager();
+  audio.ensureInitialized();
+  const level1Buf = await audio.loadAudio(
+    'https://games-assets.nitroxr.com/nitroxr-games/maze/audio/level1_theme.ogg'
+  );
+  if (level1Buf) audio.crossfade(level1Buf, { category: 'music', volume: 0.35, fade: 2 });
 
   await initLevel();
   // Scene.startLoop does not await the callback, so an async frame that awaits
@@ -136,10 +144,20 @@ async function gameLoop(input) {
 
   if (maze.checkGoal(player.position)) {
     if (GameState.nextLevel()) {
+      // Crossfade to next level theme
+      const nextLevel = GameState.currentLevel;
+      const nextBuf = await audio.loadAudio(
+        `https://games-assets.nitroxr.com/nitroxr-games/maze/audio/level${nextLevel}_theme.ogg`
+      );
+      if (nextBuf) audio.crossfade(nextBuf, { category: 'music', volume: 0.35, fade: 2 });
       await initLevel();
     } else if (!GameState.isGameOver()) {
       GameState.setVictory();
       hud.showVictory();
+      const victoryBuf = await audio.loadAudio(
+        'https://games-assets.nitroxr.com/nitroxr-games/maze/audio/victory_stinger.ogg'
+      );
+      if (victoryBuf) audio.crossfade(victoryBuf, { category: 'music', volume: 0.6, fade: 1, loop: false });
       const finalScore = hud.steps + Math.floor((Date.now() - GameState.startTime) / 1000);
       await CloudLeaderboard.submitScore(playerId, finalScore);
       try {

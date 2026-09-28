@@ -1,10 +1,10 @@
 // Single entry point to the live NitroXR runtime. Every game module imports
 // the SDK through here so the endpoint and game id stay configured in one place.
-import { NitroXR, GhostRecorder, GhostPlayer } from '@nitroxr/runtime';
+import { NitroXR, GhostRecorder, GhostPlayer, AudioManager } from '@nitroxr/runtime';
 
 NitroXR.Cloud.setEndpoint('https://cloud.nitroxr.com');
 
-export { NitroXR, GhostRecorder, GhostPlayer };
+export { NitroXR, GhostRecorder, GhostPlayer, AudioManager };
 
 export const GAME_ID = 'maze';
 
