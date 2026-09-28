@@ -33,10 +33,11 @@ await check('W walks forward (-z when facing pi)', async () => {
   assert(p.position.z < 5 && p.position.x === 5, `pos ${p.position.x},${p.position.z}`);
 });
 
-await check('D strafes visibly (+x, no rotation)', async () => {
-  const p = await mkPlayer();
+await check('D strafes right (world -x when facing -z)', async () => {
+  const p = await mkPlayer(); // rotation = Math.PI (facing -z)
   p.update(input({ moveX: 1 }), []);
-  assert(p.position.x > 5 && p.position.z === 5, `pos ${p.position.x},${p.position.z}`);
+  // Facing -z, right strafe should move -x (west)
+  assert(p.position.x < 5 && p.position.z === 5, `pos ${p.position.x},${p.position.z} should move -x`);
   assert(p.rotation === Math.PI, 'heading unchanged');
 });
 
