@@ -292,5 +292,33 @@ await check('XR: rig still follows the player, camera untouched', async () => {
   assert(scene.camera.position.y === 0, 'headset owns the camera pose; game must not move it');
 });
 
+// A10: "Interact" is the editor's wall paint, and holding the key used to
+// toggle the same cell every frame (strobe + 60 async edits a second).
+await check('holding interact edits exactly one cell', async () => {
+  const { LevelEditor } = await import('../src/LevelEditor.js');
+  const scene = makeScene();
+  const maze = new MazeEngine(scene, config);
+  const editor = new LevelEditor(scene, maze);
+  editor.isEditMode = true;
+  const pos = { x: 5.4, z: 5.6 }; // rounds to cell 5,6
+  let toggles = 0;
+  for (let i = 0; i < 30; i++) {
+    if (await editor.handleInput({ interact: true }, pos)) toggles++;
+  }
+  assert(toggles === 1, `held key produced ${toggles} edits in 30 frames (must be 1)`);
+  assert(maze.walls.some(w => w.x === 5 && w.z === 6), 'wall was not added');
+
+  // Release and press again: a second, deliberate edit.
+  await editor.handleInput({ interact: false }, pos);
+  if (await editor.handleInput({ interact: true }, pos)) toggles++;
+  assert(toggles === 2, `second press should remove the wall (got ${toggles})`);
+  assert(!maze.walls.some(w => w.x === 5 && w.z === 6), 'wall was not removed');
+
+  // Ignored entirely outside edit mode.
+  await editor.handleInput({ interact: false }, pos);
+  const outside = await new LevelEditor(scene, maze).handleInput({ interact: true }, pos);
+  assert(outside === false, 'must not edit while not in edit mode');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

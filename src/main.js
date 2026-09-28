@@ -94,13 +94,12 @@ async function gameLoop(input) {
 
   if (togglePressed) {
     editor.toggleEditMode();
+    hud.setEditMode(editor.isEditMode);
   }
 
   if (editor.isEditMode) {
-    if (input.interact) {
-      const cellX = Math.round(player.position.x);
-      const cellZ = Math.round(player.position.z);
-      await editor.handleCellInteraction(cellX, cellZ);
+    if (await editor.handleInput(input, player.position)) {
+      hud.flash('Cell edited');
     }
   } else if (!camRig.blocksMovement) {
     player.update(input, maze.walls);
