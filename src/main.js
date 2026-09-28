@@ -16,7 +16,7 @@ let scene, maze, player, hud, ghosts, avatars, editor, camRig, audio;
 const playerId = getPlayerId();
 
 // Audio helper - module level so both start() and gameLoop() can access it
-async function playMusic(assetId, options = {}) {
+const playMusicTrack = async (assetId, options = {}) => {
   try {
     const { metadata } = await scene.assetResolver.resolve(assetId);
     if (!metadata.audio_url) throw new Error(`No audio_url for ${assetId}`);
@@ -65,7 +65,7 @@ async function start() {
   audio = new AudioManager();
   audio.ensureInitialized();
   
-  await playMusic('maze_awareness', { category: 'music', volume: 0.35, fade: 2 });
+  await playMusicTrack('maze_awareness', { category: 'music', volume: 0.35, fade: 2 });
 
   await initLevel();
   // Scene.startLoop does not await the callback, so an async frame that awaits
@@ -155,12 +155,12 @@ async function gameLoop(input) {
   if (maze.checkGoal(player.position)) {
     if (GameState.nextLevel()) {
       // Crossfade to next level theme
-      await playMusic(`maze_theme_level${GameState.currentLevel}`, { category: 'music', volume: 0.35, fade: 2 });
+      await playMusicTrack(`maze_theme_level${GameState.currentLevel}`, { category: 'music', volume: 0.35, fade: 2 });
       await initLevel();
     } else if (!GameState.isGameOver()) {
       GameState.setVictory();
       hud.showVictory();
-      await playMusic('maze_victory', { category: 'music', volume: 0.6, fade: 1, loop: false });
+      await playMusicTrack('maze_victory', { category: 'music', volume: 0.6, fade: 1, loop: false });
       const finalScore = hud.steps + Math.floor((Date.now() - GameState.startTime) / 1000);
       await CloudLeaderboard.submitScore(playerId, finalScore);
       try {
