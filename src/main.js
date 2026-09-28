@@ -51,6 +51,7 @@ async function initLevel(seed = null) {
   ghosts.reset();
   await maze.generate(seed);
   player.position = { x: 1, z: 1 };
+  player.rotation = Math.PI; // face away from the chase camera
   player.entity.setPosition([1, 0.5, 1]);
   ghosts.recorder.reset();
 
@@ -67,7 +68,13 @@ async function gameLoop(input) {
   if (!config) return;
   const prevPos = { ...player.position };
 
-  if (input.toggleEditor) {
+  // Edge-triggered toggles: holding the key must not strobe modes.
+  const togglePressed = input.toggleEditor && !gameLoop._prevToggle;
+  const avatarPressed = input.changeAvatar && !gameLoop._prevAvatar;
+  gameLoop._prevToggle = input.toggleEditor;
+  gameLoop._prevAvatar = input.changeAvatar;
+
+  if (togglePressed) {
     editor.toggleEditMode();
   }
 
@@ -90,12 +97,13 @@ async function gameLoop(input) {
     sentinel.update(player.position);
     if (sentinel.checkCollision(player.position)) {
       player.position = { x: 1, z: 1 };
+      player.rotation = Math.PI;
       player.entity.setPosition([1, 0.5, 1]);
     }
   });
   ghosts.update();
 
-  if (input.changeAvatar) {
+  if (avatarPressed) {
     avatars.cycleAvatar();
   }
 
