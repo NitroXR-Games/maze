@@ -79,8 +79,11 @@ export class Player {
 
     const fx = Math.sin(this.rotation);
     const fz = Math.cos(this.rotation);
-    const rx = fz;
-    const rz = -fx;
+    // Right-hand basis: right = up x forward. These were briefly "corrected" to
+    // (fz, -fx), which is the left vector and inverted A/D — the chase camera
+    // had been mis-rotated at the same time, which hid it.
+    const rx = -fz;
+    const rz = fx;
 
     const nextX = this.position.x + (fx * fwd + rx * strafe) * this.config.playerSpeed * s;
     const nextZ = this.position.z + (fz * fwd + rz * strafe) * this.config.playerSpeed * s;

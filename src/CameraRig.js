@@ -81,17 +81,23 @@ export class CameraRig {
         break;
 
       case 'chase':
-      default:
-        rig.position.set(playerPos.x, 0, playerPos.z + CHASE_BACK);
-        // Rotate the rig to follow player's heading so chase camera
-        // always looks over player's shoulder. Camera local position
-        // stays at (0, EYE_HEIGHT, 0) looking along rig's -Z.
-        rig.rotation.y = playerRot;
+      default: {
+        // Sit BACK along the player's own backward vector, so the camera stays
+        // behind them at any heading instead of drifting to world +Z.
+        const bx = -Math.sin(playerRot);
+        const bz = -Math.cos(playerRot);
+        rig.position.set(playerPos.x + bx * CHASE_BACK, 0, playerPos.z + bz * CHASE_BACK);
+        // The camera looks along its local -Z, so the rig must be yawed by
+        // playerRot + PI for that to line up with the player's forward.
+        // (playerRot alone points the camera 180 degrees away — the cause of
+        // the "controls are inverted" report.)
+        rig.rotation.y = playerRot + Math.PI;
         camera.position.set(0, EYE_HEIGHT, 0);
         camera.rotation.x = 0;
         camera.rotation.y = 0;
         camera.rotation.z = 0;
         break;
+      }
     }
   }
 
