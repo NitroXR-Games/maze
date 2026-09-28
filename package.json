@@ -9,7 +9,7 @@
     "check": "node --check src/nitroxr.js && node --check src/main.js && node --check src/MazeEngine.js && node --check src/Player.js && node --check src/GameState.js && node --check src/HUD.js && node --check src/CloudLeaderboard.js && node --check src/GhostManager.js && node --check src/AvatarSystem.js && node --check src/LevelEditor.js && node --check src/Sentinel.js && node --check test/smoke.mjs"
   },
   "dependencies": {
-    "@nitroxr/runtime": "^0.2.1"
+    "@nitroxr/runtime": "^0.2.2"
   },
   "devDependencies": {
     "esbuild": "^0.20.0"

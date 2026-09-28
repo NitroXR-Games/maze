@@ -21,7 +21,7 @@ async function start() {
   }
 
   try {
-    const response = await fetch('../config.json');
+    const response = await fetch('./config.json');
     config = await response.json();
   } catch (e) {
     console.error('Failed to load config:', e);
