@@ -107,7 +107,7 @@ async function gameLoop(input) {
     avatars.cycleAvatar();
   }
 
-  hud.update();
+  hud.update(input, player.position, player.rotation);
 
   if (maze.checkGoal(player.position)) {
     if (GameState.nextLevel()) {
