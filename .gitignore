@@ -153,3 +153,6 @@ vite.config.ts.timestamp-*
 
 # Cloudflare is runtime-only; the maze ships from GitHub Pages.
 wrangler.jsonc
+
+# stale editor/backup artefacts
+*.bak

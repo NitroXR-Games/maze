@@ -225,9 +225,39 @@ await check('V cycles every camera mode and back', async () => {
 await check('chase keeps the camera behind the player', async () => {
   const { scene, rig } = mkCamRig();
   rig.update({ x: 3, z: 7 }, Math.PI);
-  assert(scene.rig.position.x === 3 && scene.rig.position.z === 11.5,
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  assert(near(scene.rig.position.x, 3) && near(scene.rig.position.z, 11.5),
     `rig ${scene.rig.position.x},${scene.rig.position.z}`);
   assert(scene.camera.rotation.y === 0, 'chase yaw must be 0');
+});
+
+// The camera is a child of the rig at local (0, eye, 0) looking along its -Z.
+// These are the two relations that decide whether the controls feel right, and
+// they regressed silently once: the rig was yawed by playerRot, which aims the
+// camera 180 degrees away from the player.
+await check('chase camera faces the player and D strafes screen-right at every heading', async () => {
+  const BACK = 4.5;
+  // xz-plane rotation about +Y
+  const rotY = ([x, z], t) => [x * Math.cos(t) + z * Math.sin(t), -x * Math.sin(t) + z * Math.cos(t)];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+  const nrm = ([x, z]) => { const l = Math.hypot(x, z); return [x / l, z / l]; };
+
+  for (const rot of [Math.PI, Math.PI / 2, 0, -Math.PI / 2, 2.4, -2.9]) {
+    const { scene, rig } = mkCamRig();
+    rig.update({ x: 0, z: 0 }, rot);
+    const rigPos = [scene.rig.position.x, scene.rig.position.z];
+    const fwd = rotY([0, -1], scene.rig.rotation.y);
+    const screenRight = rotY([1, 0], scene.rig.rotation.y);
+    const toPlayer = nrm([-rigPos[0], -rigPos[1]]);
+    assert(dot(fwd, toPlayer) >= 0.99,
+      `rot ${rot.toFixed(2)}: camera looks away from the player (dot ${dot(fwd, toPlayer).toFixed(2)})`);
+    assert(Math.abs(Math.hypot(rigPos[0], rigPos[1]) - BACK) < 1e-6,
+      `rot ${rot.toFixed(2)}: camera should sit ${BACK} behind, got ${Math.hypot(rigPos[0], rigPos[1])}`);
+    // Player right vector = (-cos r, sin r) must agree with screen right.
+    const playerRight = [-Math.cos(rot), Math.sin(rot)];
+    assert(dot(playerRight, screenRight) > 0,
+      `rot ${rot.toFixed(2)}: D would strafe screen-LEFT`);
+  }
 });
 
 await check('first-person looks along the heading', async () => {

@@ -33,12 +33,28 @@ await check('W walks forward (-z when facing pi)', async () => {
   assert(p.position.z < 5 && p.position.x === 5, `pos ${p.position.x},${p.position.z}`);
 });
 
-await check('D strafes right (world -x when facing -z)', async () => {
-  const p = await mkPlayer(); // rotation = Math.PI (facing -z)
+await check('D strafes to the camera-right at every heading', async () => {
+  // Right-hand basis: right = up x forward. With the player facing -z (the
+  // spawn heading) and a chase camera directly behind, that is world +x.
+  const p = await mkPlayer();
   p.update(input({ moveX: 1 }), []);
-  // Facing -z, right strafe should move -x (west)
-  assert(p.position.x < 5 && p.position.z === 5, `pos ${p.position.x},${p.position.z} should move -x`);
+  assert(p.position.x > 5 && p.position.z === 5, `pos ${p.position.x},${p.position.z} should move +x`);
   assert(p.rotation === Math.PI, 'heading unchanged');
+
+  // ...and the sign must hold all the way round, not just at spawn.
+  for (const rot of [0, Math.PI / 2, -Math.PI / 2, 2.4]) {
+    const q = await mkPlayer();
+    q.rotation = rot;
+    // World-space right = up x forward = (-cos r, sin r)
+    const wantX = -Math.cos(rot);
+    const wantZ = Math.sin(rot);
+    const before = { ...q.position };
+    q.update(input({ moveX: 1 }), []);
+    const dx = q.position.x - before.x;
+    const dz = q.position.z - before.z;
+    const dot = dx * wantX + dz * wantZ;
+    assert(dot > 0, `D moved the wrong way at rot ${rot.toFixed(2)}: (${dx.toFixed(3)},${dz.toFixed(3)})`);
+  }
 });
 
 await check('Q/E turn opposite directions', async () => {
