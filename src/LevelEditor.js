@@ -1,7 +1,9 @@
 export class LevelEditor {
-  constructor(scene, mazeEngine) {
+  constructor(scene, mazeEngine, player = null) {
     this.scene = scene;
     this.mazeEngine = mazeEngine;
+    // Held so a rebuild that clears the scene can restore the player body.
+    this.player = player;
     this.isEditMode = false;
     this.selectedCell = null;
   }
@@ -68,6 +70,8 @@ export class LevelEditor {
 
     // Re-add goal
     await this.mazeEngine.generateGoal();
+    // scene.clear() detached the player; without this the avatar vanishes.
+    if (this.player) await this.player.respawn();
     return true;
   }
 }

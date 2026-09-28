@@ -4,10 +4,10 @@
   "description": "Competitive 3D maze game for the NitroXR ecosystem",
   "type": "module",
   "scripts": {
-    "test": "node test/smoke.mjs && node test/controls.mjs",
+    "test": "node test/smoke.mjs && node test/controls.mjs && node test/audit.mjs",
     "build": "esbuild src/main.js --bundle --format=esm --outfile=maze.js",
     "dev": "npm run build && python3 -m http.server 8080",
-    "check": "node --check src/nitroxr.js && node --check src/main.js && node --check src/MazeEngine.js && node --check src/Player.js && node --check src/GameState.js && node --check src/HUD.js && node --check src/CloudLeaderboard.js && node --check src/GhostManager.js && node --check src/AvatarSystem.js && node --check src/LevelEditor.js && node --check src/Sentinel.js && node --check test/smoke.mjs && node --check test/controls.mjs"
+    "check": "node --check src/nitroxr.js && node --check src/main.js && node --check src/MazeEngine.js && node --check src/Player.js && node --check src/GameState.js && node --check src/HUD.js && node --check src/CloudLeaderboard.js && node --check src/GhostManager.js && node --check src/AvatarSystem.js && node --check src/LevelEditor.js && node --check src/Sentinel.js && node --check test/smoke.mjs && node --check test/controls.mjs && node --check test/audit.mjs && node --check src/FrameGate.js"
   },
   "dependencies": {
     "@nitroxr/runtime": "^0.2.2"

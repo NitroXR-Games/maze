@@ -7,19 +7,35 @@ export class Player {
     this.position = { x: 1, z: 1 };
     // Face away from the chase camera (camera sits at +z looking -z).
     this.rotation = Math.PI;
-    
+
     this.entity = null;
     // Live Scene.createEntity is async; callers await player.ready.
-    this.ready = scene.createEntity('player', {
+    this.ready = this._spawn();
+  }
+
+  // Scene.clear() (level change) detaches every mesh, so the player body has
+  // to be re-created or the avatar silently disappears after level 1.
+  async _spawn() {
+    this.entity = await this.scene.createEntity('player', {
       position: [this.position.x, 0.5, this.position.z],
       model: 'nitro_player_avatar'
-    }).then(entity => {
-      this.entity = entity;
-      // Game-owned collision (checkCollision below); the SDK physics must
-      // not also resolve this body or mesh and logic positions diverge.
-      if (entity.physics) entity.physics.isStatic = true;
-      return entity;
     });
+    // Game-owned collision (checkCollision below); the SDK physics must
+    // not also resolve this body or mesh and logic positions diverge.
+    if (this.entity.physics) this.entity.physics.isStatic = true;
+    this.applyTransform();
+    return this.entity;
+  }
+
+  async respawn() {
+    await this._spawn();
+  }
+
+  // The SDK entity has no rotation API, so drive the mesh yaw directly.
+  applyTransform() {
+    if (!this.entity) return;
+    this.entity.setPosition([this.position.x, 0.5, this.position.z]);
+    if (this.entity.mesh?.rotation) this.entity.mesh.rotation.y = this.rotation;
   }
 
   // v2 scheme: moveX/moveZ translate relative to facing (strafe included),
@@ -55,7 +71,10 @@ export class Player {
     if (!this.checkCollision(nextX, nextZ, walls)) {
       this.position.x = nextX;
       this.position.z = nextZ;
-      this.entity.setPosition([this.position.x, 0.5, this.position.z]);
+      this.applyTransform();
+    } else if (turn !== 0) {
+      // Turning in place must still spin the avatar.
+      this.applyTransform();
     }
   }
 

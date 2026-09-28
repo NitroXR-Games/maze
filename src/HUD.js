@@ -62,6 +62,26 @@ export class HUD {
     this.steps++;
   }
 
+  // Frame-rate independent step accounting: a step is a whole cell travelled,
+  // not a frame with movement. Counting frames made the leaderboard score
+  // depend on the player's refresh rate. Teleports (sentinel catch, level
+  // change) re-baseline instead of counting as distance.
+  recordStep(pos) {
+    if (this._lastPos) {
+      const d = Math.hypot(pos.x - this._lastPos.x, pos.z - this._lastPos.z);
+      if (d > 1) {
+        this._lastPos = { x: pos.x, z: pos.z };
+        return;
+      }
+      this._carry = (this._carry ?? 0) + d;
+      while (this._carry >= 1) {
+        this.steps++;
+        this._carry -= 1;
+      }
+    }
+    this._lastPos = { x: pos.x, z: pos.z };
+  }
+
   showVictory() {
     if (this.isDOM) this.victoryEl.style.display = 'block';
   }
