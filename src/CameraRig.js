@@ -83,9 +83,11 @@ export class CameraRig {
       case 'chase':
       default:
         rig.position.set(playerPos.x, 0, playerPos.z + CHASE_BACK);
+        // Rotate the rig to follow player's heading so chase camera
+        // always looks over player's shoulder. Camera local position
+        // stays at (0, EYE_HEIGHT, 0) looking along rig's -Z.
+        rig.rotation.y = playerRot;
         camera.position.set(0, EYE_HEIGHT, 0);
-        // Explicitly reset yaw: switching from first-person would otherwise
-        // leave the chase camera looking sideways.
         camera.rotation.x = 0;
         camera.rotation.y = 0;
         camera.rotation.z = 0;
