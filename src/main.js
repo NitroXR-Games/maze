@@ -6,6 +6,7 @@ import { GhostManager } from './GhostManager.js';
 import { AvatarSystem } from './AvatarSystem.js';
 import { LevelEditor } from './LevelEditor.js';
 import GameState from './GameState.js';
+import { FrameGate } from './FrameGate.js';
 import { NitroXR, getPlayerId } from './nitroxr.js';
 
 let config;
@@ -38,12 +39,14 @@ async function start() {
   hud = new HUD();
   ghosts = new GhostManager(scene);
   avatars = new AvatarSystem(player);
-  editor = new LevelEditor(scene, maze);
+  editor = new LevelEditor(scene, maze, player);
 
   await initLevel();
-  scene.startLoop((input) => {
-    gameLoop(input).catch(e => console.error('Game loop failed:', e));
-  });
+  // Scene.startLoop does not await the callback, so an async frame that awaits
+  // a level transition would overlap with the next frame and run game logic
+  // against a half-rebuilt maze. The gate skips instead of stacking.
+  const gate = new FrameGate();
+  scene.startLoop(input => gate.run(() => gameLoop(input)));
 }
 
 async function initLevel(seed = null) {
@@ -52,7 +55,7 @@ async function initLevel(seed = null) {
   await maze.generate(seed);
   player.position = { x: 1, z: 1 };
   player.rotation = Math.PI; // face away from the chase camera
-  player.entity.setPosition([1, 0.5, 1]);
+  await player.respawn(); // scene.clear() detached the previous player body
   ghosts.recorder.reset();
 
   try {
@@ -66,7 +69,6 @@ async function initLevel(seed = null) {
 
 async function gameLoop(input) {
   if (!config) return;
-  const prevPos = { ...player.position };
 
   // Edge-triggered toggles: holding the key must not strobe modes.
   const togglePressed = input.toggleEditor && !gameLoop._prevToggle;
@@ -88,17 +90,16 @@ async function gameLoop(input) {
     player.update(input, maze.walls);
   }
 
-  if (prevPos.x !== player.position.x || prevPos.z !== player.position.z) {
-    hud.incrementSteps();
-  }
+  // Steps are whole cells travelled, not frames (frame-rate independent).
+  hud.recordStep(player.position);
   ghosts.recordPosition(player.position);
 
   maze.sentinels.forEach(sentinel => {
-    sentinel.update(player.position);
+    sentinel.update(player.position, maze.walls, input.deltaTime ?? 0.016);
     if (sentinel.checkCollision(player.position)) {
       player.position = { x: 1, z: 1 };
       player.rotation = Math.PI;
-      player.entity.setPosition([1, 0.5, 1]);
+      player.applyTransform();
     }
   });
   ghosts.update();

@@ -19,12 +19,15 @@ export class MazeEngine {
   }
 
   setTheme(themeId) {
+    if (!this.themes[themeId]) return false;
     this.currentTheme = themeId;
     const theme = this.themes[themeId];
+    // Entities can be missing (scene cleared by the editor), so guard lookups.
     this.walls.forEach(wall => {
-      this.scene.getEntity(`wall_${wall.x}_${wall.z}`).update({ material: theme.wall });
+      this.scene.getEntity(`wall_${wall.x}_${wall.z}`)?.update({ material: theme.wall });
     });
-    this.scene.getEntity('goal').update({ material: theme.goal });
+    this.scene.getEntity('goal')?.update({ material: theme.goal });
+    return true;
   }
 
   async generateGoal() {
@@ -55,15 +58,11 @@ export class MazeEngine {
   async generate(seed = null) {
     this.walls = [];
     this.sentinels = [];
-    
-    // Use seed for deterministic generation if provided
-    if (seed !== null) {
-      this.currentSeed = seed;
-      Math.random = this.mulberry32(seed);
-    } else {
-      this.currentSeed = null;
-      Math.random = Math.random; 
-    }
+
+    // Scoped PRNG: seeding must not hijack the global Math.random, which used
+    // to leak into every later "random" decision (sentinels, next level, ids).
+    const rand = seed !== null ? this.mulberry32(seed) : Math.random;
+    this.currentSeed = seed;
 
     const width = this.config.mazeWidth + (GameState.currentLevel * 2);
     const height = this.config.mazeHeight + (GameState.currentLevel * 2);
@@ -71,7 +70,7 @@ export class MazeEngine {
 
     const carve = (x, z) => {
       grid[x][z] = false;
-      const dirs = [[0, 2], [0, -2], [2, 0], [-2, 0]].sort(() => Math.random() - 0.5);
+      const dirs = [[0, 2], [0, -2], [2, 0], [-2, 0]].sort(() => rand() - 0.5);
       for (const [dx, dz] of dirs) {
         const nx = x + dx, nz = z + dz;
         if (nx > 0 && nx < width - 1 && nz > 0 && nz < height - 1 && grid[nx][nz]) {
@@ -100,12 +99,12 @@ export class MazeEngine {
     if (GameState.currentLevel > 1) {
       const sentinelCount = GameState.currentLevel;
       for (let i = 0; i < sentinelCount; i++) {
-        const startX = Math.floor(Math.random() * (width - 2)) + 1;
-        const startZ = Math.floor(Math.random() * (height - 2)) + 1;
+        const startX = Math.floor(rand() * (width - 2)) + 1;
+        const startZ = Math.floor(rand() * (height - 2)) + 1;
         if (!grid[startX][startZ]) {
           const patrol = [
             { x: startX, z: startZ },
-            { x: Math.floor(Math.random() * (width - 2)) + 1, z: Math.floor(Math.random() * (height - 2)) + 1 }
+            { x: Math.floor(rand() * (width - 2)) + 1, z: Math.floor(rand() * (height - 2)) + 1 }
           ];
           this.sentinels.push(await Sentinel.create(this.scene, { x: startX, z: startZ }, patrol));
         }

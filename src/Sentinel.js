@@ -4,18 +4,18 @@ export class Sentinel {
     this.position = { ...startPos };
     this.patrolPoints = patrolPoints;
     this.currentPointIndex = 0;
-    this.speed = 0.02;
+    this.speed = 0.02; // cells per 60fps frame
     this.state = 'PATROL'; // PATROL, CHASE, RETURN
     this.targetPlayer = null;
-    
+
     this.entity = null;
     this.ready = scene.createEntity(`sentinel_${Math.random().toString(36).substr(2, 9)}`, {
       position: [this.position.x, 0.5, this.position.z],
       model: 'sphere'
     }).then(entity => {
       this.entity = entity;
-      // Sentinels path through walls by design; keep the SDK physics from
-      // fighting their scripted positions (see Player).
+      // Sentinels are game-scripted; keep the SDK physics from fighting
+      // their positions (see Player).
       if (entity.physics) entity.physics.isStatic = true;
       return entity;
     });
@@ -27,16 +27,15 @@ export class Sentinel {
     return sentinel;
   }
 
-  update(playerPos) {
-    const distToPlayer = Math.sqrt(
-      Math.pow(playerPos.x - this.position.x, 2) + 
-      Math.pow(playerPos.z - this.position.z, 2)
-    );
+  update(playerPos, walls = [], deltaTime = 0.016) {
+    const distToPlayer = this.getDist(playerPos, this.position);
+    // Never see or catch a player through solid geometry.
+    const sees = distToPlayer < 3.0 && this.hasLineOfSight(this.position, playerPos, walls);
 
     // Basic Behavior Tree Logic
-    if (distToPlayer < 3.0) {
+    if (sees) {
       this.state = 'CHASE';
-      this.targetPlayer = playerPos;
+      this.targetPlayer = { ...playerPos };
     } else if (this.state === 'CHASE' && distToPlayer > 5.0) {
       this.state = 'RETURN';
     } else if (this.state === 'RETURN' && distToPlayer > 6.0) {
@@ -44,41 +43,74 @@ export class Sentinel {
     }
 
     if (this.state === 'CHASE') {
-      this.moveTowards(this.targetPlayer.x, this.targetPlayer.z);
+      this.moveTowards(this.targetPlayer.x, this.targetPlayer.z, walls, deltaTime);
     } else if (this.state === 'RETURN') {
-      this.moveTowards(this.patrolPoints[this.currentPointIndex].x, this.patrolPoints[this.currentPointIndex].z);
-      if (this.getDist(this.position, this.patrolPoints[this.currentPointIndex]) < 0.1) {
+      const target = this.patrolPoints[this.currentPointIndex];
+      this.moveTowards(target.x, target.z, walls, deltaTime);
+      if (this.getDist(this.position, target) < 0.1) {
         this.state = 'PATROL';
       }
     } else {
-      this.patrol();
+      this.patrol(walls, deltaTime);
     }
   }
 
-  patrol() {
+  patrol(walls = [], deltaTime = 0.016) {
     const target = this.patrolPoints[this.currentPointIndex];
-    this.moveTowards(target.x, target.z);
+    this.moveTowards(target.x, target.z, walls, deltaTime);
     if (this.getDist(this.position, target) < 0.1) {
       this.currentPointIndex = (this.currentPointIndex + 1) % this.patrolPoints.length;
     }
   }
 
-  moveTowards(tx, tz) {
+  // Wall-aware: try the full step, then slide along one axis. Without this a
+  // sentinel walks straight through the maze and grabs the player from the
+  // far side of a wall.
+  moveTowards(tx, tz, walls = [], deltaTime = 0.016) {
     if (!this.entity) return;
+    const s = (deltaTime ?? 0.016) * 60;
+    const step = this.speed * s;
     const dx = tx - this.position.x;
     const dz = tz - this.position.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist > 0) {
-      this.position.x += (dx / dist) * this.speed;
-      this.position.z += (dz / dist) * this.speed;
+    if (dist <= 0) return;
+
+    const ux = (dx / dist) * step;
+    const uz = (dz / dist) * step;
+    const nx = this.position.x + ux;
+    const nz = this.position.z + uz;
+    if (!this.isWall(nx, nz, walls)) {
+      this.position.x = nx;
+      this.position.z = nz;
+    } else {
+      if (!this.isWall(nx, this.position.z, walls)) this.position.x = nx;
+      if (!this.isWall(this.position.x, nz, walls)) this.position.z = nz;
     }
     this.entity.setPosition([this.position.x, 0.5, this.position.z]);
+  }
+
+  isWall(x, z, walls) {
+    return walls.some(w => x > w.x - 0.5 && x < w.x + 0.5 && z > w.z - 0.5 && z < w.z + 0.5);
+  }
+
+  // Samples the segment between two points; any wall cell blocks sight.
+  hasLineOfSight(a, b, walls) {
+    const dist = this.getDist(a, b);
+    const steps = Math.ceil(dist / 0.2);
+    if (steps === 0) return true;
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      if (this.isWall(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, walls)) return false;
+    }
+    return true;
   }
 
   getDist(p1, p2) {
     return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.z - p2.z, 2));
   }
 
+  // Catch only if actually adjacent — walls are handled by the caller's
+  // line-of-sight state machine.
   checkCollision(playerPos) {
     return this.getDist(playerPos, this.position) < 0.6;
   }
