@@ -66,6 +66,8 @@ export class MazeEngine {
 
     const width = this.config.mazeWidth + (GameState.currentLevel * 2);
     const height = this.config.mazeHeight + (GameState.currentLevel * 2);
+    this.width = width;
+    this.height = height;
     const grid = Array.from({ length: width }, () => Array(height).fill(true));
 
     const carve = (x, z) => {
@@ -128,6 +130,13 @@ export class MazeEngine {
       model: this.themes[this.currentTheme].wall,
       physics: { isStatic: true }
     });
+  }
+
+  // World-space bounds of the current maze; the overhead camera frames these.
+  getExtents() {
+    const width = this.width ?? (this.config.mazeWidth + GameState.currentLevel * 2);
+    const height = this.height ?? (this.config.mazeHeight + GameState.currentLevel * 2);
+    return { width, height, cx: (width - 1) / 2, cz: (height - 1) / 2 };
   }
 
   checkGoal(playerPos) {

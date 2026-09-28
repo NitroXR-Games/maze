@@ -14,11 +14,14 @@ export class HUD {
       this.timerEl = document.createElement('div');
       this.helpEl = document.createElement('div');
       this.helpEl.style.cssText = 'margin-top:6px;font-size:0.75rem;opacity:0.8;';
-      this.helpEl.textContent = 'Move: WASD/arrows · Turn: Q/E · Avatar: C · Interact: E/Space · Editor: T · Goal: reach the portal';
+      this.helpEl.textContent = 'Move: WASD/arrows · Turn: Q/E · Avatar: C · Interact: E/Space · Editor: T · View: V · Console: `';
       this.teleEl = document.createElement('div');
       this.teleEl.style.cssText = 'margin-top:6px;font-size:0.75rem;opacity:0.8;';
+      this.viewEl = document.createElement('div');
+      this.viewEl.style.cssText = 'margin-top:2px;font-size:0.85rem;color:#7dfcff;';
       this.root.appendChild(this.stepEl);
       this.root.appendChild(this.timerEl);
+      this.root.appendChild(this.viewEl);
       this.root.appendChild(this.helpEl);
       this.root.appendChild(this.teleEl);
       document.body.appendChild(this.root);
@@ -31,6 +34,11 @@ export class HUD {
     this.update();
     this._lastFrame = 0;
     this._fps = 0;
+  }
+
+  setView(label) {
+    this.viewLabel = label;
+    if (this.isDOM) this.viewEl.textContent = `View: ${label}`;
   }
 
   // update(input, pos, rot) — telemetry args optional; HUD never throws.
