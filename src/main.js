@@ -14,8 +14,12 @@ const playerId = getPlayerId();
 
 async function start() {
   scene = new NitroXR.Scene();
+  // Only offer the VR button where WebXR actually exists; on desktop it
+  // renders as a scary "VR NOT SUPPORTED" pill.
   try {
-    await scene.enableVRButton?.();
+    if (await NitroXR.InputBridge.isXRSupported()) {
+      await scene.enableVRButton?.();
+    }
   } catch {
     // Desktop: no headset, keyboard loop still runs.
   }
@@ -112,6 +116,10 @@ async function gameLoop(input) {
       }
     }
   }
+
+  // Third-person follow: the headset owns the camera pose, so locomotion
+  // moves the rig. Desktop players get a chase view that tracks the player.
+  scene.rig.position.set(player.position.x, 0, player.position.z + 4.5);
 
   scene.update(input.deltaTime ?? 0.016);
 }
