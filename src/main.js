@@ -7,10 +7,11 @@ import { AvatarSystem } from './AvatarSystem.js';
 import { LevelEditor } from './LevelEditor.js';
 import GameState from './GameState.js';
 import { FrameGate } from './FrameGate.js';
+import { CameraRig } from './CameraRig.js';
 import { NitroXR, getPlayerId } from './nitroxr.js';
 
 let config;
-let scene, maze, player, hud, ghosts, avatars, editor;
+let scene, maze, player, hud, ghosts, avatars, editor, camRig;
 const playerId = getPlayerId();
 
 async function start() {
@@ -40,6 +41,9 @@ async function start() {
   ghosts = new GhostManager(scene);
   avatars = new AvatarSystem(player);
   editor = new LevelEditor(scene, maze, player);
+  camRig = new CameraRig(scene, maze);
+  hud.setView(camRig.label);
+  bindViewToggle();
 
   await initLevel();
   // Scene.startLoop does not await the callback, so an async frame that awaits
@@ -47,6 +51,18 @@ async function start() {
   // against a half-rebuilt maze. The gate skips instead of stacking.
   const gate = new FrameGate();
   scene.startLoop(input => gate.run(() => gameLoop(input)));
+}
+
+// V cycles the desktop camera. The runtime InputBridge has no view action, so
+// the game binds it here; e.repeat guards against held-key cycling.
+function bindViewToggle() {
+  if (typeof window === 'undefined') return;
+  window.addEventListener('keydown', e => {
+    if (e.code !== 'KeyV' || e.repeat) return;
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    camRig.cycle();
+    hud.setView(camRig.label);
+  });
 }
 
 async function initLevel(seed = null) {
@@ -86,7 +102,7 @@ async function gameLoop(input) {
       const cellZ = Math.round(player.position.z);
       await editor.handleCellInteraction(cellX, cellZ);
     }
-  } else {
+  } else if (!camRig.blocksMovement) {
     player.update(input, maze.walls);
   }
 
@@ -127,8 +143,8 @@ async function gameLoop(input) {
   }
 
   // Third-person follow: the headset owns the camera pose, so locomotion
-  // moves the rig. Desktop players get a chase view that tracks the player.
-  scene.rig.position.set(player.position.x, 0, player.position.z + 4.5);
+  // moves the rig. Desktop players get the selected camera mode.
+  camRig.update(player.position, player.rotation);
 
   scene.update(input.deltaTime ?? 0.016);
 }
