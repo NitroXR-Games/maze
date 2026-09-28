@@ -14,7 +14,7 @@ export class HUD {
       this.timerEl = document.createElement('div');
       this.helpEl = document.createElement('div');
       this.helpEl.style.cssText = 'margin-top:6px;font-size:0.75rem;opacity:0.8;';
-      this.helpEl.textContent = 'Move: WASD/arrows · Interact: E/Space · Editor: T · Goal: reach the portal';
+      this.helpEl.textContent = 'Move: WASD/arrows · Turn: Q/E · Avatar: C · Interact: E/Space · Editor: T · Goal: reach the portal';
       this.root.appendChild(this.stepEl);
       this.root.appendChild(this.timerEl);
       this.root.appendChild(this.helpEl);
