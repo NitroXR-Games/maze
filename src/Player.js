@@ -9,8 +9,26 @@ export class Player {
     this.rotation = Math.PI;
 
     this.entity = null;
+    // Post-catch invulnerability. Without it, a sentinel sitting near the
+    // spawn cell re-caught the player every frame and the run became
+    // unwinnable with no feedback.
+    this.grace = 0;
     // Live Scene.createEntity is async; callers await player.ready.
     this.ready = this._spawn();
+  }
+
+  grantGrace(seconds) {
+    this.grace = seconds;
+  }
+
+  get isInvulnerable() {
+    return this.grace > 0;
+  }
+
+  // Driven by frame deltaTime, not wall clock, so the grace survives a
+  // backgrounded tab (rAF stops) instead of expiring while you are away.
+  updateGrace(deltaTime) {
+    if (this.grace > 0) this.grace = Math.max(0, this.grace - (deltaTime ?? 0.016));
   }
 
   // Scene.clear() (level change) detaches every mesh, so the player body has

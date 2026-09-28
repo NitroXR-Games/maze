@@ -38,10 +38,27 @@ export class HUD {
       this.victoryEl.style.cssText = 'position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);z-index:11;display:none;font-family:monospace;font-size:2rem;color:gold;background:rgba(0,0,0,0.75);padding:24px 48px;border:2px solid gold;border-radius:12px;';
       this.victoryEl.textContent = 'MAZE COMPLETE!';
       document.body.appendChild(this.victoryEl);
+
+      // Catch feedback: previously the player was silently teleported to the
+      // start with no explanation of what happened.
+      this.caughtEl = document.createElement('div');
+      this.caughtEl.style.cssText = 'position:fixed;top:26%;left:50%;transform:translateX(-50%);z-index:15;display:none;font-family:monospace;font-size:1.1rem;color:#ff6b6b;background:rgba(0,0,0,0.7);padding:10px 22px;border:1px solid #ff6b6b;border-radius:8px;white-space:nowrap;';
+      document.body.appendChild(this.caughtEl);
     }
     this.update();
     this._lastFrame = 0;
     this._fps = 0;
+  }
+
+  showCaught(seconds) {
+    this.caught = true;
+    if (!this.isDOM) return;
+    this.caughtEl.textContent = `CAUGHT! — back to the start · ${seconds}s safe`;
+    this.caughtEl.style.display = 'block';
+    clearTimeout(this._caughtTimer);
+    this._caughtTimer = setTimeout(() => {
+      this.caughtEl.style.display = 'none';
+    }, seconds * 1000);
   }
 
   setEditMode(on) {

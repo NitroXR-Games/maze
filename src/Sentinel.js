@@ -1,3 +1,18 @@
+// Resolves player-vs-sentinel contacts. Extracted from the game loop so the
+// grace/recall rules are directly testable: without the invulnerability
+// check a sentinel next to the spawn cell re-caught the player every frame.
+export function resolveCatches(player, sentinels, { grace = 2, onCatch } = {}) {
+  for (const s of sentinels) {
+    if (player.isInvulnerable || !s.checkCollision(player.position)) continue;
+    player.position = { x: 1, z: 1 };
+    player.rotation = Math.PI;
+    player.applyTransform();
+    player.grantGrace(grace);
+    s.recall();
+    onCatch?.(s, grace);
+  }
+}
+
 export class Sentinel {
   constructor(scene, startPos, patrolPoints) {
     this.scene = scene;
@@ -87,6 +102,19 @@ export class Sentinel {
       if (!this.isWall(this.position.x, nz, walls)) this.position.z = nz;
     }
     this.entity.setPosition([this.position.x, 0.5, this.position.z]);
+  }
+
+  // Sends the sentinel back to its patrol home. Called when it catches the
+  // player so it cannot camp the spawn cell the player is thrown back to.
+  recall() {
+    const home = this.patrolPoints[0];
+    if (home) {
+      this.position = { x: home.x, z: home.z };
+      this.currentPointIndex = this.patrolPoints.length > 1 ? 1 : 0;
+      if (this.entity) this.entity.setPosition([this.position.x, 0.5, this.position.z]);
+    }
+    this.state = 'PATROL';
+    this.targetPlayer = null;
   }
 
   isWall(x, z, walls) {
