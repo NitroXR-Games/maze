@@ -8,12 +8,20 @@ export class Sentinel {
     this.state = 'PATROL'; // PATROL, CHASE, RETURN
     this.targetPlayer = null;
     
-    this.entity = scene.createEntity(`sentinel_${Math.random().toString(36).substr(2, 9)}`, {
+    this.entity = null;
+    this.ready = scene.createEntity(`sentinel_${Math.random().toString(36).substr(2, 9)}`, {
       position: [this.position.x, 0.5, this.position.z],
-      model: 'sphere',
-      color: 'red',
-      material: 'nitro_hazard_glow'
+      model: 'sphere'
+    }).then(entity => {
+      this.entity = entity;
+      return entity;
     });
+  }
+
+  static async create(scene, startPos, patrolPoints) {
+    const sentinel = new Sentinel(scene, startPos, patrolPoints);
+    await sentinel.ready;
+    return sentinel;
   }
 
   update(playerPos) {
@@ -53,6 +61,7 @@ export class Sentinel {
   }
 
   moveTowards(tx, tz) {
+    if (!this.entity) return;
     const dx = tx - this.position.x;
     const dz = tz - this.position.z;
     const dist = Math.sqrt(dx * dx + dz * dz);

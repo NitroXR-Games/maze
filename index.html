@@ -41,7 +41,7 @@
 <body>
     <div class="header">
         <h1>NITROXR MAZE DEBUGGER</h1>
-        <span class="status-pill">MOCK RUNTIME ACTIVE</span>
+        <span class="status-pill">LIVE RUNTIME (cloud.nitroxr.com)</span>
     </div>
     <div id="console"></div>
 
@@ -58,7 +58,6 @@
             originalLog.apply(console, args);
         };
     </script>
-    <script src="mock-nitroxr.js"></script>
-    <script type="module" src="src/main.js"></script>
+    <script type="module" src="./maze.js"></script>
 </body>
 </html>

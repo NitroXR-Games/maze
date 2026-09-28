@@ -1,44 +1,52 @@
+import { NitroXR, GAME_ID, GhostRecorder, GhostPlayer } from './nitroxr.js';
+
 export class GhostManager {
   constructor(scene) {
     this.scene = scene;
-    this.ghosts = [];
-    this.recording = [];
+    this.players = [];
+    this.recorder = new GhostRecorder({ hz: 10 });
   }
 
   recordPosition(pos) {
-    this.recording.push({ ...pos, t: Date.now() });
+    this.recorder.sample([pos.x, 0.5, pos.z]);
   }
 
   async loadGhost(userId) {
     console.log(`Fetching ghost data for ${userId}...`);
-    const data = await NitroXR.Cloud.getGhost(userId);
+    let data;
+    try {
+      data = await NitroXR.Cloud.getGhost(userId, GAME_ID);
+    } catch (e) {
+      console.error('Ghost fetch failed', e);
+      return null;
+    }
     if (!data) return null;
 
-    const ghostEntity = this.scene.createEntity(`ghost_${userId}`, {
-      model: 'sphere',
-      material: 'nitro_ghost_transparent',
-      position: [data.path[0].x, 0.5, data.path[0].z]
+    const entity = await this.scene.createEntity(`ghost_${userId}`, {
+      model: 'maze_ghost',
+      position: [1, 0.5, 1]
     });
-
-    const ghost = {
-      entity: ghostEntity,
-      path: data.path,
-      startTime: Date.now()
-    };
-    this.ghosts.push(ghost);
-    return ghost;
+    const player = new GhostPlayer(entity, { loop: true });
+    player.load(data);
+    player.play();
+    this.players.push(player);
+    return player;
   }
 
-  update() {
-    const now = Date.now();
-    this.ghosts.forEach(ghost => {
-      const elapsed = now - ghost.startTime;
-      const frame = ghost.path.find(p => p.t >= elapsed) || ghost.path[ghost.path.length - 1];
-      ghost.entity.setPosition([frame.x, 0.5, frame.z]);
-    });
+  update(nowMs = Date.now()) {
+    this.players.forEach(p => p.update(nowMs));
+  }
+
+  reset() {
+    this.players = [];
+    this.recorder.reset();
+  }
+
+  async uploadGhost(userId) {
+    return NitroXR.Cloud.submitGhost(userId, this.recorder.toPayload(), GAME_ID);
   }
 
   getRecording() {
-    return this.recording;
+    return this.recorder.points;
   }
 }
