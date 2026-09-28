@@ -12,7 +12,7 @@ export class LevelEditor {
     return this.isEditMode;
   }
 
-  handleCellInteraction(x, z) {
+  async handleCellInteraction(x, z) {
     if (!this.isEditMode) return;
 
     const wallIndex = this.mazeEngine.walls.findIndex(w => w.x === x && w.z === z);
@@ -24,35 +24,50 @@ export class LevelEditor {
       console.log(`Wall removed at ${x}, ${z}`);
     } else {
       // Add wall
-      this.mazeEngine.addWall(x, z);
+      await this.mazeEngine.addWall(x, z);
       console.log(`Wall added at ${x}, ${z}`);
     }
   }
 
+  // Lap 7 will move layouts server-side; until then layouts persist locally.
+  // (The live Cloud has no layout endpoints yet, so no Cloud calls here.)
+  layoutKey(layoutId) {
+    return `nitro_maze_layout_${layoutId}`;
+  }
+
   async saveLayout(layoutId) {
     const layout = this.mazeEngine.walls.map(w => ({ x: w.x, z: w.z }));
-    console.log(`Saving layout ${layoutId} to NitroXR Cloud...`);
-    return await NitroXR.Cloud.submit({
-      gameId: 'maze-editor',
-      layoutId: layoutId,
-      data: layout
-    });
+    console.log(`Saving layout ${layoutId} locally...`);
+    try {
+      localStorage.setItem(this.layoutKey(layoutId), JSON.stringify(layout));
+      return true;
+    } catch (e) {
+      console.error('Layout save failed', e);
+      return false;
+    }
   }
 
   async loadLayout(layoutId) {
     console.log(`Loading layout ${layoutId}...`);
-    const data = await NitroXR.Cloud.getLayout(layoutId);
-    if (!data) return false;
+    let layout = null;
+    try {
+      const raw = localStorage.getItem(this.layoutKey(layoutId));
+      if (raw) layout = JSON.parse(raw);
+    } catch (e) {
+      console.error('Layout load failed', e);
+      return false;
+    }
+    if (!layout) return false;
 
     this.mazeEngine.walls = [];
     this.scene.clear(); // Clear current maze
-    
-    data.layout.forEach(w => {
-      this.mazeEngine.addWall(w.x, w.z);
-    });
-    
+
+    for (const w of layout) {
+      await this.mazeEngine.addWall(w.x, w.z);
+    }
+
     // Re-add goal
-    this.mazeEngine.generateGoal(); 
+    await this.mazeEngine.generateGoal();
     return true;
   }
 }

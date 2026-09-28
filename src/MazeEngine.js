@@ -1,4 +1,5 @@
 import GameState from './GameState.js';
+import { Sentinel } from './Sentinel.js';
 
 export class MazeEngine {
   constructor(scene, config) {
@@ -9,10 +10,12 @@ export class MazeEngine {
     this.goal = { x: 0, z: 0 };
     this.currentTheme = 'standard';
     this.themes = {
-      standard: { wall: 'nitro_concrete_wall', goal: 'nitro_gold_glow', floor: 'nitro_gray_floor' },
+      standard: { wall: 'maze_wall_concrete', goal: 'maze_goal_portal', floor: 'maze_floor_tile' },
       neon: { wall: 'nitro_neon_blue', goal: 'nitro_neon_pink', floor: 'nitro_black_reflective' },
       ruins: { wall: 'nitro_stone_moss', goal: 'nitro_ancient_torch', floor: 'nitro_dirt_path' }
     };
+    // Only `standard` resolves against the live registry today; neon/ruins
+    // fall back to primitives until their assets are generated (see ASSETS.md).
   }
 
   setTheme(themeId) {
@@ -24,16 +27,15 @@ export class MazeEngine {
     this.scene.getEntity('goal').update({ material: theme.goal });
   }
 
-  generateGoal() {
+  async generateGoal() {
     this.goal = { x: this.config.mazeWidth - 2, z: this.config.mazeHeight - 2 };
-    this.scene.createEntity('goal', {
+    await this.scene.createEntity('goal', {
       position: [this.goal.x, 0.5, this.goal.z],
-      model: 'cube',
-      material: this.themes[this.currentTheme].goal
+      model: this.themes[this.currentTheme].goal
     });
   }
 
-  generate(seed = null) {
+  async generate(seed = null) {
     this.walls = [];
     this.sentinels = [];
     
@@ -64,15 +66,18 @@ export class MazeEngine {
 
     carve(1, 1);
 
+    // Walls resolve cloud assets in parallel; the resolver cache dedups IDs.
+    const builds = [];
     for (let x = 0; x < width; x++) {
       for (let z = 0; z < height; z++) {
         if (grid[x][z]) {
-          this.addWall(x, z);
+          builds.push(this.addWall(x, z));
         }
       }
     }
-    
-    this.generateGoal();
+    await Promise.all(builds);
+
+    await this.generateGoal();
 
     if (GameState.currentLevel > 1) {
       const sentinelCount = GameState.currentLevel;
@@ -84,7 +89,7 @@ export class MazeEngine {
             { x: startX, z: startZ },
             { x: Math.floor(Math.random() * (width - 2)) + 1, z: Math.floor(Math.random() * (height - 2)) + 1 }
           ];
-          this.sentinels.push(new Sentinel(this.scene, { x: startX, z: startZ }, patrol));
+          this.sentinels.push(await Sentinel.create(this.scene, { x: startX, z: startZ }, patrol));
         }
       }
     }
@@ -99,12 +104,12 @@ export class MazeEngine {
     }
   }
 
-  addWall(x, z) {
+  async addWall(x, z) {
     this.walls.push({ x, z });
-    this.scene.createEntity(`wall_${x}_${z}`, {
+    await this.scene.createEntity(`wall_${x}_${z}`, {
       position: [x, 0.5, z],
-      model: 'cube',
-      material: this.themes[this.currentTheme].wall
+      model: this.themes[this.currentTheme].wall,
+      physics: { isStatic: true }
     });
   }
 
