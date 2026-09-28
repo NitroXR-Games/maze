@@ -135,6 +135,8 @@
         // Game keys (WASD/Q/E/C/T/V) never collide with these.
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Backquote' || e.code === 'Slash') {
+                e.preventDefault();
+                e.stopPropagation();
                 setConsoleOpen(consoleDiv.classList.contains('hidden'));
             }
         });
