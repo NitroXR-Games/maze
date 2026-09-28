@@ -150,3 +150,6 @@ vite.config.ts.timestamp-*
 .wrangler
 .dev.vars*
 !.dev.vars.example
+
+# Cloudflare is runtime-only; the maze ships from GitHub Pages.
+wrangler.jsonc
