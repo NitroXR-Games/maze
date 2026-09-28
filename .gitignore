@@ -143,6 +143,9 @@ vite.config.ts.timestamp-*
 .vite/
 ._*
 
+# Local bundle (built by `npm run build`, served by `npm run dev`)
+/maze.js
+
 # wrangler files
 .wrangler
 .dev.vars*

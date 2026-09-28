@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node test/smoke.mjs",
-    "build": "esbuild src/main.js --bundle --format=esm --outfile=dist/maze.js",
+    "build": "esbuild src/main.js --bundle --format=esm --outfile=maze.js",
+    "dev": "npm run build && python3 -m http.server 8080",
     "check": "node --check src/nitroxr.js && node --check src/main.js && node --check src/MazeEngine.js && node --check src/Player.js && node --check src/GameState.js && node --check src/HUD.js && node --check src/CloudLeaderboard.js && node --check src/GhostManager.js && node --check src/AvatarSystem.js && node --check src/LevelEditor.js && node --check src/Sentinel.js && node --check test/smoke.mjs"
   },
   "dependencies": {

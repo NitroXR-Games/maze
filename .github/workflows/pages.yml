@@ -46,7 +46,7 @@ jobs:
         run: |
           mkdir -p site
           cp index.html site/index.html
-          cp dist/maze.js site/maze.js
+          cp maze.js site/maze.js
           cp config.json site/config.json
 
       - name: Upload artifact
