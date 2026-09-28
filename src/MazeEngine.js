@@ -16,6 +16,15 @@ export class MazeEngine {
     };
     // Only `standard` resolves against the live registry today; neon/ruins
     // fall back to primitives until their assets are generated (see ASSETS.md).
+
+    // Sentinel wave system: periodic active/inactive cycles so the player
+    // gets windows of safety. Durations are in seconds.
+    this.wave = {
+      active: false,
+      timer: 0,
+      activeDuration: 20,   // seconds sentinels hunt
+      cooldownDuration: 15, // seconds they vanish
+    };
   }
 
   setTheme(themeId) {
@@ -112,6 +121,7 @@ export class MazeEngine {
         }
       }
     }
+    // Sentinels start dormant; startWaves() will activate the first wave.
   }
 
   mulberry32(a) {
@@ -137,6 +147,39 @@ export class MazeEngine {
     const width = this.width ?? (this.config.mazeWidth + GameState.currentLevel * 2);
     const height = this.height ?? (this.config.mazeHeight + GameState.currentLevel * 2);
     return { width, height, cx: (width - 1) / 2, cz: (height - 1) / 2 };
+  }
+
+  // Start the sentinel wave cycle for this level.
+  startWaves() {
+    if (GameState.currentLevel <= 1) return; // no sentinels on level 1
+    this.wave.active = true;
+    this.wave.timer = this.wave.activeDuration;
+    this.sentinels.forEach(s => s.activate());
+    console.log(`[Wave] Sentinels active for ${this.wave.activeDuration}s`);
+  }
+
+  // Update the wave timer; call once per frame with deltaTime.
+  updateWaves(deltaTime) {
+    if (GameState.currentLevel <= 1) return;
+    this.wave.timer -= deltaTime;
+
+    if (this.wave.active) {
+      if (this.wave.timer <= 0) {
+        // Wave ends -> cooldown
+        this.wave.active = false;
+        this.wave.timer = this.wave.cooldownDuration;
+        this.sentinels.forEach(s => s.deactivate());
+        console.log(`[Wave] Cooldown for ${this.wave.cooldownDuration}s`);
+      }
+    } else {
+      if (this.wave.timer <= 0) {
+        // Cooldown ends -> new wave
+        this.wave.active = true;
+        this.wave.timer = this.wave.activeDuration;
+        this.sentinels.forEach(s => s.activate());
+        console.log(`[Wave] Sentinels active for ${this.wave.activeDuration}s`);
+      }
+    }
   }
 
   checkGoal(playerPos) {

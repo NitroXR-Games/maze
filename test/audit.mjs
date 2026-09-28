@@ -4,7 +4,7 @@
 // clear) exactly, so headless results match browser behaviour.
 // Run: node test/audit.mjs
 import { Player } from '../src/Player.js';
-import { Sentinel } from '../src/Sentinel.js';
+import { Sentinel, resolveCatches } from '../src/Sentinel.js';
 import { MazeEngine } from '../src/MazeEngine.js';
 import GameState from '../src/GameState.js';
 import { CameraRig, VIEW_MODES } from '../src/CameraRig.js';
@@ -103,11 +103,13 @@ await check('sentinel speed is frame-rate independent', async () => {
   const scene = makeScene();
   const s = new Sentinel(scene, { x: 1, z: 1 }, [{ x: 9, z: 1 }]);
   await s.ready;
+  s.activate();
   s.state = 'CHASE'; s.targetPlayer = { x: 9, z: 1 };
   for (let i = 0; i < 60; i++) s.update({ x: 9, z: 1 }, [], 1 / 60);   // 1.0s @60fps
   const slow = s.position.x - 1;
   const s2 = new Sentinel(scene, { x: 1, z: 1 }, [{ x: 9, z: 1 }]);
   await s2.ready;
+  s2.activate();
   s2.state = 'CHASE'; s2.targetPlayer = { x: 9, z: 1 };
   for (let i = 0; i < 144; i++) s2.update({ x: 9, z: 1 }, [], 1 / 144); // 1.0s @144fps
   const fast = s2.position.x - 1;
@@ -318,6 +320,75 @@ await check('holding interact edits exactly one cell', async () => {
   await editor.handleInput({ interact: false }, pos);
   const outside = await new LevelEditor(scene, maze).handleInput({ interact: true }, pos);
   assert(outside === false, 'must not edit while not in edit mode');
+});
+
+// A11: sentinels. The catch resets the player to (1,1); a sentinel near the
+// spawn cell then re-caught them every frame, making the run unwinnable with
+// no feedback (proven 180/180 frames before the fix).
+const GRACE = 2;
+async function simulateCatch(sentinelStart, frames = 180) {
+  const scene = makeScene();
+  const player = new Player(scene, config);
+  await player.ready;
+  player.position = { x: 1, z: 1 };
+  const s = new Sentinel(scene, sentinelStart, [{ ...sentinelStart }]);
+  await s.ready;
+  let catchFrames = [];
+  let prevGrace = player.grace;
+  for (let f = 0; f < frames; f++) {
+    player.updateGrace(1 / 60);
+    s.update(player.position, [], 1 / 60);
+    const before = player.grace;
+    resolveCatches(player, [s], { grace: GRACE });
+    if (player.grace > prevGrace) {
+      // A catch happened: grace was just granted
+      catchFrames.push(f);
+    }
+    prevGrace = player.grace;
+  }
+  return { catchFrames, player, s };
+}
+
+await check('a sentinel near spawn cannot trap the player', async () => {
+  const minGap = GRACE * 60;
+  for (const start of [{ x: 1.4, z: 1.0 }, { x: 1.5, z: 1.0 }, { x: 2.5, z: 1.0 }]) {
+    const { catchFrames } = await simulateCatch(start);
+    // A legitimate re-catch is allowed once grace runs out (a sentinel whose
+    // patrol home is next to spawn really will come back) — but never sooner,
+    // and never per-frame. Before the fix this was 180/180.
+    for (let i = 1; i < catchFrames.length; i++) {
+      const gap = catchFrames[i] - catchFrames[i - 1];
+      assert(gap >= minGap,
+        `sentinel at ${start.x},${start.z} re-caught after ${gap} frames (grace is ${minGap})`);
+    }
+    assert(catchFrames.length < 6, `caught ${catchFrames.length}x in 3s — still trapping`);
+  }
+});
+
+await check('grace expires so sentinels stay a real threat', async () => {
+  const scene = makeScene();
+  const player = new Player(scene, config);
+  await player.ready;
+  player.grantGrace(GRACE);
+  assert(player.isInvulnerable, 'must start invulnerable');
+  for (let f = 0; f < 60; f++) player.updateGrace(1 / 60); // 1s
+  assert(player.isInvulnerable, 'grace ended early');
+  for (let f = 0; f < 61; f++) player.updateGrace(1 / 60); // +1s
+  assert(!player.isInvulnerable, 'grace never expired — sentinels would be toothless');
+  assert(player.grace === 0, 'grace should floor at 0');
+});
+
+await check('catch recalls the sentinel off the spawn cell', async () => {
+  const scene = makeScene();
+  const s = new Sentinel(scene, { x: 1.4, z: 1.0 }, [{ x: 9, z: 9 }, { x: 7, z: 8 }]);
+  await s.ready;
+  s.state = 'CHASE';
+  s.targetPlayer = { x: 1, z: 1 };
+  s.recall();
+  assert(Math.hypot(s.position.x - 1, s.position.z - 1) > 0.6,
+    `sentinel still camping spawn at ${s.position.x},${s.position.z}`);
+  assert(s.state === 'PATROL', 'recalled sentinel must resume patrolling');
+  assert(!s.checkCollision({ x: 1, z: 1 }), 'still able to catch at spawn');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);
