@@ -7,6 +7,7 @@ import { Player } from '../src/Player.js';
 import { Sentinel } from '../src/Sentinel.js';
 import { MazeEngine } from '../src/MazeEngine.js';
 import GameState from '../src/GameState.js';
+import { CameraRig, VIEW_MODES } from '../src/CameraRig.js';
 
 // Faithful stand-in for THREE.Scene: clear() detaches every mesh (index.js:161).
 function makeScene() {
@@ -173,6 +174,122 @@ await check('level transition keeps a playable scene', async () => {
   player.position = { x: 1, z: 1 };
   player.update(input({ moveZ: -1 }), maze.walls);
   assert(Number.isFinite(player.position.z), 'player position went NaN');
+});
+
+// A9: camera modes. Stub mirrors Scene: PerspectiveCamera(75, aspect) child
+// of a rig, renderer.xr.isPresenting for the XR gate.
+function makeCamScene(presenting = false) {
+  const vec3 = () => ({ x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } });
+  return {
+    rig: { position: vec3() },
+    camera: {
+      fov: 75, aspect: 16 / 9,
+      position: vec3(),
+      rotation: { x: 0, y: 0, z: 0 },
+      lookAt: null,
+      _look: null,
+      lookAt(x, y, z) { this._look = { x, y, z }; }
+    },
+    renderer: { xr: { isPresenting: presenting } }
+  };
+}
+function mkCamRig(presenting = false, level = 1) {
+  const scene = makeCamScene(presenting);
+  const maze = new MazeEngine(makeScene(), config);
+  maze.width = config.mazeWidth + level * 2;
+  maze.height = config.mazeHeight + level * 2;
+  return { scene, rig: new CameraRig(scene, maze) };
+}
+// Three.js camera forward for a yaw-only camera.
+const camForward = yaw => ({ x: -Math.sin(yaw), z: -Math.cos(yaw) });
+
+await check('V cycles every camera mode and back', async () => {
+  const { rig } = mkCamRig();
+  const seen = [rig.mode];
+  for (let i = 0; i < VIEW_MODES.length - 1; i++) seen.push(rig.cycle());
+  assert(seen.join(',') === VIEW_MODES.join(','), `cycle order ${seen.join(',')}`);
+  assert(rig.cycle() === VIEW_MODES[0], 'cycle must wrap to the first mode');
+  assert(rig.setMode('nonsense') === false, 'unknown mode must be rejected');
+});
+
+await check('chase keeps the camera behind the player', async () => {
+  const { scene, rig } = mkCamRig();
+  rig.update({ x: 3, z: 7 }, Math.PI);
+  assert(scene.rig.position.x === 3 && scene.rig.position.z === 11.5,
+    `rig ${scene.rig.position.x},${scene.rig.position.z}`);
+  assert(scene.camera.rotation.y === 0, 'chase yaw must be 0');
+});
+
+await check('first-person looks along the heading', async () => {
+  const { scene, rig } = mkCamRig();
+  rig.setMode('firstperson');
+  for (const rot of [Math.PI, Math.PI / 2, 0, -Math.PI / 2, 2.4]) {
+    rig.update({ x: 4, z: 4 }, rot);
+    const f = camForward(scene.camera.rotation.y);
+    const want = { x: Math.sin(rot), z: Math.cos(rot) };
+    assert(Math.abs(f.x - want.x) < 1e-9 && Math.abs(f.z - want.z) < 1e-9,
+      `rot ${rot.toFixed(2)}: camera looks (${f.x.toFixed(2)},${f.z.toFixed(2)}) but player faces (${want.x.toFixed(2)},${want.z.toFixed(2)})`);
+    assert(scene.rig.position.x === 4 && scene.rig.position.z === 4, 'rig must sit on the player');
+  }
+});
+
+await check('switching modes never leaves a stale camera yaw', async () => {
+  const { scene, rig } = mkCamRig();
+  rig.setMode('firstperson');
+  rig.update({ x: 1, z: 1 }, 0);
+  assert(scene.camera.rotation.y !== 0, 'precondition: first-person should yaw the camera');
+  rig.setMode('chase');
+  rig.update({ x: 1, z: 1 }, 0);
+  assert(scene.camera.rotation.y === 0 && scene.camera.rotation.x === 0,
+    'chase inherited a stale yaw from first-person');
+});
+
+await check('top-down frames the whole maze', async () => {
+  const { scene, rig } = mkCamRig(false, 3);
+  rig.setMode('topdown');
+  rig.update({ x: 0, z: 0 }, 0);
+  // level 3 => 10 + 3*2 = 16 cells, centre (16-1)/2 = 7.5
+  assert(scene.rig.position.x === 7.5 && scene.rig.position.z === 7.5,
+    `centre should be 7.5,7.5 got ${scene.rig.position.x},${scene.rig.position.z}`);
+  assert(Math.abs(scene.camera.rotation.x + Math.PI / 2) < 1e-9, 'camera must look straight down');
+  // Visible footprint at that height must cover the maze plus margin.
+  const halfTan = Math.tan((scene.camera.fov * Math.PI) / 360);
+  const h = scene.camera.position.y;
+  assert(2 * h * halfTan * scene.camera.aspect >= 18, 'maze width does not fit horizontally');
+  assert(2 * h * halfTan >= 18, 'maze height does not fit vertically');
+});
+
+await check('top-down refits for the largest level', async () => {
+  const a = mkCamRig(false, 1), b = mkCamRig(false, 3);
+  a.rig.setMode('topdown'); a.rig.update({ x: 0, z: 0 }, 0);
+  b.rig.setMode('topdown'); b.rig.update({ x: 0, z: 0 }, 0);
+  assert(b.scene.camera.position.y > a.scene.camera.position.y,
+    `level 3 (${b.scene.camera.position.y}) must sit higher than level 1 (${a.scene.camera.position.y})`);
+});
+
+await check('orbit orbits the maze centre and clamps zoom', async () => {
+  const { scene, rig } = mkCamRig(false, 3);
+  rig.setMode('orbit');
+  assert(rig.blocksMovement, 'orbit must pause movement');
+  rig.update({ x: 0, z: 0 }, 0);
+  assert(scene.camera._look && scene.camera._look.x === 7.5, 'orbit must look at the maze centre');
+  const dist = () => Math.hypot(scene.camera.position.x, scene.camera.position.y, scene.camera.position.z);
+  rig.orbit.radius = 1e6; rig.update({ x: 0, z: 0 }, 0);
+  assert(dist() <= 60 + 1e-6, `far clamp broken: ${dist()}`);
+  rig.orbit.radius = -5; rig.update({ x: 0, z: 0 }, 0);
+  assert(dist() >= 4 - 1e-6, `near clamp broken: ${dist()}`);
+  rig.orbit.pitch = 99; rig.update({ x: 0, z: 0 }, 0);
+  assert(Number.isFinite(scene.camera.position.y), 'pitch clamp must keep the camera finite');
+  rig.setMode('chase');
+  assert(!rig.blocksMovement, 'chase must not block movement');
+});
+
+await check('XR: rig still follows the player, camera untouched', async () => {
+  const { scene, rig } = mkCamRig(true);
+  rig.setMode('topdown');
+  rig.update({ x: 6, z: 9 }, 0);
+  assert(scene.rig.position.x === 6 && scene.rig.position.z === 9, 'rig must carry locomotion in XR');
+  assert(scene.camera.position.y === 0, 'headset owns the camera pose; game must not move it');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);
