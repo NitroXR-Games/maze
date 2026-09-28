@@ -10,12 +10,32 @@ export class LevelEditor {
 
   toggleEditMode() {
     this.isEditMode = !this.isEditMode;
+    this._prevInteract = false;
     console.log(`Edit Mode: ${this.isEditMode ? 'ON' : 'OFF'}`);
     return this.isEditMode;
   }
 
+  // One press paints one cell. This used to be level-triggered in the game
+  // loop, so holding the key toggled the same wall ~60x a second (strobing
+  // it on and off). Returns true when a cell was actually toggled.
+  handleInput(input, playerPos) {
+    const held = !!input.interact;
+    const pressed = held && !this._prevInteract;
+    this._prevInteract = held;
+    if (!this.isEditMode || !pressed) return false;
+    return this.handleCellInteraction(Math.round(playerPos.x), Math.round(playerPos.z));
+  }
+
+  async handleInput(input, playerPos) {
+    const held = !!input.interact;
+    const pressed = held && !this._prevInteract;
+    this._prevInteract = held;
+    if (!this.isEditMode || !pressed) return false;
+    return this.handleCellInteraction(Math.round(playerPos.x), Math.round(playerPos.z));
+  }
+
   async handleCellInteraction(x, z) {
-    if (!this.isEditMode) return;
+    if (!this.isEditMode) return false;
 
     const wallIndex = this.mazeEngine.walls.findIndex(w => w.x === x && w.z === z);
     if (wallIndex !== -1) {
@@ -29,6 +49,7 @@ export class LevelEditor {
       await this.mazeEngine.addWall(x, z);
       console.log(`Wall added at ${x}, ${z}`);
     }
+    return true;
   }
 
   // Lap 7 will move layouts server-side; until then layouts persist locally.

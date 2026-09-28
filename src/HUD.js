@@ -14,14 +14,22 @@ export class HUD {
       this.timerEl = document.createElement('div');
       this.helpEl = document.createElement('div');
       this.helpEl.style.cssText = 'margin-top:6px;font-size:0.75rem;opacity:0.8;';
-      this.helpEl.textContent = 'Move: WASD/arrows · Turn: Q/E · Avatar: C · Interact: E/Space · Editor: T · View: V · Console: `';
+      // Player-facing only. Editor/avatar tools are shown separately so the
+      // help line describes the game instead of debug affordances.
+      this.helpEl.textContent = 'Move: WASD/arrows · Turn: Q/E · View: V · Log: /';
       this.teleEl = document.createElement('div');
       this.teleEl.style.cssText = 'margin-top:6px;font-size:0.75rem;opacity:0.8;';
       this.viewEl = document.createElement('div');
       this.viewEl.style.cssText = 'margin-top:2px;font-size:0.85rem;color:#7dfcff;';
+      // Editor banner: entering edit mode used to be signalled only by a
+      // console line in a now-collapsed drawer, so it looked like nothing happened.
+      this.editEl = document.createElement('div');
+      this.editEl.style.cssText = 'display:none;margin-top:4px;font-size:0.8rem;color:#ffd75f;';
+      this.editEl.textContent = 'EDIT MODE — walk over a cell and press E to add/remove a wall · T to exit';
       this.root.appendChild(this.stepEl);
       this.root.appendChild(this.timerEl);
       this.root.appendChild(this.viewEl);
+      this.root.appendChild(this.editEl);
       this.root.appendChild(this.helpEl);
       this.root.appendChild(this.teleEl);
       document.body.appendChild(this.root);
@@ -34,6 +42,25 @@ export class HUD {
     this.update();
     this._lastFrame = 0;
     this._fps = 0;
+  }
+
+  setEditMode(on) {
+    this.editMode = on;
+    if (this.isDOM) this.editEl.style.display = on ? 'block' : 'none';
+  }
+
+  // Transient confirmation, so editor edits are visible without the console.
+  flash(text) {
+    if (!this.isDOM) return;
+    this.editEl.textContent = text;
+    this.editEl.style.display = 'block';
+    clearTimeout(this._flashTimer);
+    this._flashTimer = setTimeout(() => {
+      this.editEl.style.display = this.editMode ? 'block' : 'none';
+      if (this.editMode) {
+        this.editEl.textContent = 'EDIT MODE — walk over a cell and press E to add/remove a wall · T to exit';
+      }
+    }, 1200);
   }
 
   setView(label) {
