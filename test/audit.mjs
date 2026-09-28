@@ -103,11 +103,13 @@ await check('sentinel speed is frame-rate independent', async () => {
   const scene = makeScene();
   const s = new Sentinel(scene, { x: 1, z: 1 }, [{ x: 9, z: 1 }]);
   await s.ready;
+  s.activate();
   s.state = 'CHASE'; s.targetPlayer = { x: 9, z: 1 };
   for (let i = 0; i < 60; i++) s.update({ x: 9, z: 1 }, [], 1 / 60);   // 1.0s @60fps
   const slow = s.position.x - 1;
   const s2 = new Sentinel(scene, { x: 1, z: 1 }, [{ x: 9, z: 1 }]);
   await s2.ready;
+  s2.activate();
   s2.state = 'CHASE'; s2.targetPlayer = { x: 9, z: 1 };
   for (let i = 0; i < 144; i++) s2.update({ x: 9, z: 1 }, [], 1 / 144); // 1.0s @144fps
   const fast = s2.position.x - 1;

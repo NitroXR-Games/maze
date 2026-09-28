@@ -73,6 +73,7 @@ async function initLevel(seed = null) {
   scene.clear();
   ghosts.reset();
   await maze.generate(seed);
+  maze.startWaves();
   player.position = { x: 1, z: 1 };
   player.rotation = Math.PI; // face away from the chase camera
   await player.respawn(); // scene.clear() detached the previous player body
@@ -114,6 +115,7 @@ async function gameLoop(input) {
   ghosts.recordPosition(player.position);
 
   player.updateGrace(input.deltaTime ?? 0.016);
+  maze.updateWaves(input.deltaTime ?? 0.016);
   maze.sentinels.forEach(sentinel => {
     sentinel.update(player.position, maze.walls, input.deltaTime ?? 0.016);
   });
