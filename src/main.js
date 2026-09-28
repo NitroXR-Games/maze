@@ -15,15 +15,25 @@ let config;
 let scene, maze, player, hud, ghosts, avatars, editor, camRig, audio;
 const playerId = getPlayerId();
 
-// Audio helper - module level so both start() and gameLoop() can access it
+// Audio helper - module level so both start() and gameLoop() can access it.
+// A registry entry is not proof a binary exists: the seed listed four audio
+// assets whose R2 objects 404, so every level-up paid a failed fetch and a
+// decode attempt on an HTML error page. Remember misses and never retry.
+const AUDIO_UNAVAILABLE = new Set();
+
 const playMusicTrack = async (assetId, options = {}) => {
+  if (AUDIO_UNAVAILABLE.has(assetId)) return false;
   try {
     const { metadata } = await scene.assetResolver.resolve(assetId);
-    if (!metadata.audio_url) throw new Error(`No audio_url for ${assetId}`);
+    if (!metadata.audio_url) throw new Error('no audio_url');
     const buf = await audio.loadAudio(metadata.audio_url);
-    if (buf) audio.crossfade(buf, options);
+    if (!buf) throw new Error('empty buffer');
+    audio.crossfade(buf, options);
+    return true;
   } catch (e) {
-    console.warn(`Audio load failed: ${assetId}`, e);
+    AUDIO_UNAVAILABLE.add(assetId);
+    console.warn(`Audio unavailable, not retrying: ${assetId} (${e.message})`);
+    return false;
   }
 }
 
@@ -155,12 +165,16 @@ async function gameLoop(input) {
   if (maze.checkGoal(player.position)) {
     if (GameState.nextLevel()) {
       // Crossfade to next level theme
-      await playMusicTrack(`maze_theme_level${GameState.currentLevel}`, { category: 'music', volume: 0.35, fade: 2 });
+      // No per-level themes are registered yet, so keep the one track that
+      // actually resolves. Re-add level themes here once their audio exists.
+      await playMusicTrack('maze_awareness', { category: 'music', volume: 0.35, fade: 2 });
       await initLevel();
     } else if (!GameState.isGameOver()) {
       GameState.setVictory();
       hud.showVictory();
-      await playMusicTrack('maze_victory', { category: 'music', volume: 0.6, fade: 1, loop: false });
+      // No victory stinger is registered yet; `loop:false` on an existing
+      // track would also stop the music when the stinger ends.
+      await playMusicTrack('maze_awareness', { category: 'music', volume: 0.35, fade: 1 });
       const finalScore = hud.steps + Math.floor((Date.now() - GameState.startTime) / 1000);
       await CloudLeaderboard.submitScore(playerId, finalScore);
       try {
