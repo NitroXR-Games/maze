@@ -90,6 +90,7 @@ async function initLevel(seed = null) {
 
 async function gameLoop(input) {
   if (!config) return;
+  if (GameState.isGameOver()) return; // Victory: stop the loop
 
   // Edge-triggered toggles: holding the key must not strobe modes.
   const togglePressed = input.toggleEditor && !gameLoop._prevToggle;
