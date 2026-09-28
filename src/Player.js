@@ -79,8 +79,8 @@ export class Player {
 
     const fx = Math.sin(this.rotation);
     const fz = Math.cos(this.rotation);
-    const rx = -fz;
-    const rz = fx;
+    const rx = fz;
+    const rz = -fx;
 
     const nextX = this.position.x + (fx * fwd + rx * strafe) * this.config.playerSpeed * s;
     const nextZ = this.position.z + (fz * fwd + rz * strafe) * this.config.playerSpeed * s;
