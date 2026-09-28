@@ -12,8 +12,12 @@ export class HUD {
       this.root.style.cssText = 'position:fixed;top:12px;left:12px;z-index:10;font-family:monospace;color:#00ff41;background:rgba(0,0,0,0.6);padding:8px 12px;border:1px solid #00ff41;border-radius:6px;';
       this.stepEl = document.createElement('div');
       this.timerEl = document.createElement('div');
+      this.helpEl = document.createElement('div');
+      this.helpEl.style.cssText = 'margin-top:6px;font-size:0.75rem;opacity:0.8;';
+      this.helpEl.textContent = 'Move: WASD/arrows · Interact: E/Space · Editor: T · Goal: reach the portal';
       this.root.appendChild(this.stepEl);
       this.root.appendChild(this.timerEl);
+      this.root.appendChild(this.helpEl);
       document.body.appendChild(this.root);
 
       this.victoryEl = document.createElement('div');
