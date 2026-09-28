@@ -15,6 +15,9 @@ export class Player {
       model: 'nitro_player_avatar'
     }).then(entity => {
       this.entity = entity;
+      // Game-owned collision (checkCollision below); the SDK physics must
+      // not also resolve this body or mesh and logic positions diverge.
+      if (entity.physics) entity.physics.isStatic = true;
       return entity;
     });
   }

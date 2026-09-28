@@ -14,6 +14,9 @@ export class Sentinel {
       model: 'sphere'
     }).then(entity => {
       this.entity = entity;
+      // Sentinels path through walls by design; keep the SDK physics from
+      // fighting their scripted positions (see Player).
+      if (entity.physics) entity.physics.isStatic = true;
       return entity;
     });
   }
