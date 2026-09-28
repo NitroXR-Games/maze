@@ -18,14 +18,6 @@ export class LevelEditor {
   // One press paints one cell. This used to be level-triggered in the game
   // loop, so holding the key toggled the same wall ~60x a second (strobing
   // it on and off). Returns true when a cell was actually toggled.
-  handleInput(input, playerPos) {
-    const held = !!input.interact;
-    const pressed = held && !this._prevInteract;
-    this._prevInteract = held;
-    if (!this.isEditMode || !pressed) return false;
-    return this.handleCellInteraction(Math.round(playerPos.x), Math.round(playerPos.z));
-  }
-
   async handleInput(input, playerPos) {
     const held = !!input.interact;
     const pressed = held && !this._prevInteract;
