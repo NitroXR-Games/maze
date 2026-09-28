@@ -64,7 +64,7 @@ async function start() {
     }
   }
   
-  await playMusic('maze_theme_level1', { category: 'music', volume: 0.35, fade: 2 });
+  await playMusic('maze_awareness', { category: 'music', volume: 0.35, fade: 2 });
 
   await initLevel();
   // Scene.startLoop does not await the callback, so an async frame that awaits
