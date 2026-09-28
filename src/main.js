@@ -53,19 +53,18 @@ async function start() {
   audio = new AudioManager();
   audio.ensureInitialized();
   
-  async function loadAndPlay(url, options = {}) {
+  async function playMusic(assetId, options = {}) {
     try {
-      const buf = await audio.loadAudio(url);
+      const { metadata } = await scene.assetResolver.resolve(assetId);
+      if (!metadata.audio_url) throw new Error(`No audio_url for ${assetId}`);
+      const buf = await audio.loadAudio(metadata.audio_url);
       if (buf) audio.crossfade(buf, options);
     } catch (e) {
-      console.warn(`Audio load failed: ${url}`, e);
+      console.warn(`Audio load failed: ${assetId}`, e);
     }
   }
   
-  await loadAndPlay(
-    'https://games-assets.nitroxr.com/nitroxr-games/maze/audio/level1_theme.ogg',
-    { category: 'music', volume: 0.35, fade: 2 }
-  );
+  await playMusic('maze_theme_level1', { category: 'music', volume: 0.35, fade: 2 });
 
   await initLevel();
   // Scene.startLoop does not await the callback, so an async frame that awaits
@@ -155,25 +154,12 @@ async function gameLoop(input) {
   if (maze.checkGoal(player.position)) {
     if (GameState.nextLevel()) {
       // Crossfade to next level theme
-      const nextLevel = GameState.currentLevel;
-      const nextUrl = `https://games-assets.nitroxr.com/nitroxr-games/maze/audio/level${nextLevel}_theme.ogg`;
-      try {
-        const nextBuf = await audio.loadAudio(nextUrl);
-        if (nextBuf) audio.crossfade(nextBuf, { category: 'music', volume: 0.35, fade: 2 });
-      } catch (e) {
-        console.warn(`Audio load failed: ${nextUrl}`, e);
-      }
+      await playMusic(`maze_theme_level${GameState.currentLevel}`, { category: 'music', volume: 0.35, fade: 2 });
       await initLevel();
     } else if (!GameState.isGameOver()) {
       GameState.setVictory();
       hud.showVictory();
-      const victoryUrl = 'https://games-assets.nitroxr.com/nitroxr-games/maze/audio/victory_stinger.ogg';
-      try {
-        const victoryBuf = await audio.loadAudio(victoryUrl);
-        if (victoryBuf) audio.crossfade(victoryBuf, { category: 'music', volume: 0.6, fade: 1, loop: false });
-      } catch (e) {
-        console.warn(`Audio load failed: ${victoryUrl}`, e);
-      }
+      await playMusic('maze_victory', { category: 'music', volume: 0.6, fade: 1, loop: false });
       const finalScore = hud.steps + Math.floor((Date.now() - GameState.startTime) / 1000);
       await CloudLeaderboard.submitScore(playerId, finalScore);
       try {
