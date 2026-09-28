@@ -2,7 +2,7 @@
 // Stub scene — no GPU needed. Run: npm test (chains smoke + controls).
 import { Player } from '../src/Player.js';
 
-const stubScene = { createEntity: async () => ({ setPosition() {} }) };
+const stubScene = { createEntity: async () => ({ setPosition() {}, physics: { isStatic: false } }) };
 const config = { playerSpeed: 0.05, rotationSpeed: 0.03 };
 const DT = 0.016;
 
@@ -68,6 +68,11 @@ await check('walls block movement', async () => {
   const p = await mkPlayer();
   p.update(input({ moveX: 1 }), [{ x: 5.4, z: 5 }]);
   assert(p.position.x === 5, `moved into wall: ${p.position.x}`);
+});
+
+await check('player opts out of SDK physics (game-owned collision)', async () => {
+  const p = await mkPlayer();
+  assert(p.entity.physics.isStatic === true, 'player body must be static');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

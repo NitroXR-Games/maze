@@ -26,6 +26,8 @@ export class GhostManager {
       model: 'maze_ghost',
       position: [1, 0.5, 1]
     });
+    // Ghost playback sets positions directly; SDK physics must not fight it.
+    if (entity.physics) entity.physics.isStatic = true;
     const player = new GhostPlayer(entity, { loop: true });
     player.load(data);
     player.play();
