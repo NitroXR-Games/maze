@@ -191,7 +191,7 @@ await check('level transition keeps a playable scene', async () => {
 function makeCamScene(presenting = false) {
   const vec3 = () => ({ x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } });
   return {
-    rig: { position: vec3(), rotation: vec3() },
+    rig: { position: vec3() },
     camera: {
       fov: 75, aspect: 16 / 9,
       position: vec3(),
