@@ -8,11 +8,15 @@ import { LevelEditor } from './LevelEditor.js';
 import GameState from './GameState.js';
 import { FrameGate } from './FrameGate.js';
 import { CameraRig } from './CameraRig.js';
+import { resolveCatches } from './Sentinel.js';
 import { NitroXR, getPlayerId } from './nitroxr.js';
 
 let config;
 let scene, maze, player, hud, ghosts, avatars, editor, camRig;
 const playerId = getPlayerId();
+
+// Seconds of post-catch invulnerability.
+const CAUGHT_GRACE = 2;
 
 async function start() {
   scene = new NitroXR.Scene();
@@ -69,6 +73,7 @@ async function initLevel(seed = null) {
   scene.clear();
   ghosts.reset();
   await maze.generate(seed);
+  maze.startWaves();
   player.position = { x: 1, z: 1 };
   player.rotation = Math.PI; // face away from the chase camera
   await player.respawn(); // scene.clear() detached the previous player body
@@ -109,13 +114,16 @@ async function gameLoop(input) {
   hud.recordStep(player.position);
   ghosts.recordPosition(player.position);
 
+  player.updateGrace(input.deltaTime ?? 0.016);
+  maze.updateWaves(input.deltaTime ?? 0.016);
   maze.sentinels.forEach(sentinel => {
     sentinel.update(player.position, maze.walls, input.deltaTime ?? 0.016);
-    if (sentinel.checkCollision(player.position)) {
-      player.position = { x: 1, z: 1 };
-      player.rotation = Math.PI;
-      player.applyTransform();
-    }
+  });
+  // Brief invulnerability plus a recall, so a sentinel that caught the player
+  // cannot immediately re-catch them at the spawn cell.
+  resolveCatches(player, maze.sentinels, {
+    grace: CAUGHT_GRACE,
+    onCatch: (_sentinel, grace) => hud.showCaught(grace)
   });
   ghosts.update();
 

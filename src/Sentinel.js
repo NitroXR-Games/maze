@@ -1,3 +1,19 @@
+// Resolves player-vs-sentinel contacts. Extracted from the game loop so the
+// grace/recall rules are directly testable: without the invulnerability
+// check a sentinel next to the spawn cell re-caught the player every frame.
+export function resolveCatches(player, sentinels, { grace = 2, onCatch } = {}) {
+  for (const s of sentinels) {
+    if (!s.active) continue; // wave system: only active sentinels can catch
+    if (player.isInvulnerable || !s.checkCollision(player.position)) continue;
+    player.position = { x: 1, z: 1 };
+    player.rotation = Math.PI;
+    player.applyTransform();
+    player.grantGrace(grace);
+    s.recall();
+    onCatch?.(s, grace);
+  }
+}
+
 export class Sentinel {
   constructor(scene, startPos, patrolPoints) {
     this.scene = scene;
@@ -7,6 +23,8 @@ export class Sentinel {
     this.speed = 0.02; // cells per 60fps frame
     this.state = 'PATROL'; // PATROL, CHASE, RETURN
     this.targetPlayer = null;
+    this.active = false; // wave system: sentinel only hunts when active
+    this.despawnTimer = 0;
 
     this.entity = null;
     this.ready = scene.createEntity(`sentinel_${Math.random().toString(36).substr(2, 9)}`, {
@@ -17,6 +35,8 @@ export class Sentinel {
       // Sentinels are game-scripted; keep the SDK physics from fighting
       // their positions (see Player).
       if (entity.physics) entity.physics.isStatic = true;
+      // Start hidden; wave system will show when active
+      if (entity.mesh) entity.mesh.visible = false;
       return entity;
     });
   }
@@ -27,7 +47,23 @@ export class Sentinel {
     return sentinel;
   }
 
+  // Wave system: activate for a hunt period, deactivate for a cooldown.
+  activate() {
+    this.active = true;
+    this.state = 'PATROL';
+    this.targetPlayer = null;
+    if (this.entity && this.entity.mesh) this.entity.mesh.visible = true;
+  }
+
+  deactivate() {
+    this.active = false;
+    this.state = 'DORMANT';
+    this.targetPlayer = null;
+    if (this.entity && this.entity.mesh) this.entity.mesh.visible = false;
+  }
+
   update(playerPos, walls = [], deltaTime = 0.016) {
+    if (!this.active) return;
     const distToPlayer = this.getDist(playerPos, this.position);
     // Never see or catch a player through solid geometry.
     const sees = distToPlayer < 3.0 && this.hasLineOfSight(this.position, playerPos, walls);
@@ -87,6 +123,19 @@ export class Sentinel {
       if (!this.isWall(this.position.x, nz, walls)) this.position.z = nz;
     }
     this.entity.setPosition([this.position.x, 0.5, this.position.z]);
+  }
+
+  // Sends the sentinel back to its patrol home. Called when it catches the
+  // player so it cannot camp the spawn cell the player is thrown back to.
+  recall() {
+    const home = this.patrolPoints[0];
+    if (home) {
+      this.position = { x: home.x, z: home.z };
+      this.currentPointIndex = this.patrolPoints.length > 1 ? 1 : 0;
+      if (this.entity) this.entity.setPosition([this.position.x, 0.5, this.position.z]);
+    }
+    this.state = 'PATROL';
+    this.targetPlayer = null;
   }
 
   isWall(x, z, walls) {
