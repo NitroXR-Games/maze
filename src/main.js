@@ -15,6 +15,18 @@ let config;
 let scene, maze, player, hud, ghosts, avatars, editor, camRig, audio;
 const playerId = getPlayerId();
 
+// Audio helper - module level so both start() and gameLoop() can access it
+async function playMusic(assetId, options = {}) {
+  try {
+    const { metadata } = await scene.assetResolver.resolve(assetId);
+    if (!metadata.audio_url) throw new Error(`No audio_url for ${assetId}`);
+    const buf = await audio.loadAudio(metadata.audio_url);
+    if (buf) audio.crossfade(buf, options);
+  } catch (e) {
+    console.warn(`Audio load failed: ${assetId}`, e);
+  }
+}
+
 // Seconds of post-catch invulnerability.
 const CAUGHT_GRACE = 2;
 
@@ -52,17 +64,6 @@ async function start() {
   // Audio: start background music (will auto-resume on first user gesture)
   audio = new AudioManager();
   audio.ensureInitialized();
-  
-  async function playMusic(assetId, options = {}) {
-    try {
-      const { metadata } = await scene.assetResolver.resolve(assetId);
-      if (!metadata.audio_url) throw new Error(`No audio_url for ${assetId}`);
-      const buf = await audio.loadAudio(metadata.audio_url);
-      if (buf) audio.crossfade(buf, options);
-    } catch (e) {
-      console.warn(`Audio load failed: ${assetId}`, e);
-    }
-  }
   
   await playMusic('maze_awareness', { category: 'music', volume: 0.35, fade: 2 });
 
