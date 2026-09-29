@@ -89,13 +89,20 @@
             font-weight: bold;
             font-size: 0.8rem;
         }
+        /* H hides the HUD overlay AND the page's debug chrome. The victory
+           banner is deliberately NOT hidden - it is game state, not debug. */
+        body.hud-hidden .header,
+        body.hud-hidden #console-toggle,
+        body.hud-hidden #console {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>NITROXR MAZE DEBUGGER</h1>
         <span class="status-pill">LIVE RUNTIME (cloud.nitroxr.com)</span>
-        <div class="hint">V — change view &nbsp;·&nbsp; L or / — toggle console</div>
+        <div class="hint">V — change view &nbsp;·&nbsp; H — hide UI &nbsp;·&nbsp; L or / — toggle console</div>
         <div class="key-readout" id="key-readout">key: —</div>
     </div>
     <button id="console-toggle" type="button" title="Toggle console (L or /)">LOG <span id="log-count">0</span></button>
