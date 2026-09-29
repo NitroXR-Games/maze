@@ -496,5 +496,34 @@ await check('every generated maze stays solvable with the collision radius', asy
   }
 });
 
+async function mkPlayerAt(rot) {
+  const pl = new Player(makeScene(), config);
+  await pl.ready;
+  pl.position = { x: 5, z: 5 };
+  pl.rotation = rot;
+  return pl;
+}
+
+// A14: XR locomotion must follow the HEADSET, not the avatar. The avatar's
+// rotation is unrelated to where you are looking once a headset is driving
+// the camera, so driving movement from it is the classic VR nausea bug.
+await check('an explicit heading overrides the avatar basis for movement', async () => {
+  const p = await mkPlayerAt(Math.PI);           // avatar faces -z
+  // Headset turned a quarter-turn to face +x (east).
+  p.update(input({ moveZ: -1 }), [], Math.PI / 2);
+  assert(p.position.x > 5 && Math.abs(p.position.z - 5) < 1e-9,
+    `W with head yaw should move +x, got ${p.position.x},${p.position.z}`);
+
+  // And the avatar's own facing must NOT have been mutated by looking around.
+  assert(p.rotation === Math.PI, 'looking around must not spin the avatar');
+});
+
+await check('omitting heading keeps the avatar basis (desktop behaviour)', async () => {
+  const p = await mkPlayerAt(Math.PI);
+  p.update(input({ moveZ: -1 }), []);          // no heading
+  assert(Math.abs(p.position.z - 5) > 0.01 && Math.abs(p.position.x - 5) < 1e-9,
+    `desktop W should move -z, got ${p.position.x},${p.position.z}`);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
