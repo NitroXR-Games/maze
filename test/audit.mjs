@@ -456,5 +456,45 @@ await check('a seeded maze is reproducible across instances', async () => {
   assert(a !== c, 'different seeds produced the same maze');
 });
 
+// A13: the player gained a collision radius. This must NOT make any generated
+// maze unsolvable — corridors are 1.0 wide, so the margin has to stay under
+// 0.5. Proven by reachability under the real checkCollision, not asserted.
+await check('every generated maze stays solvable with the collision radius', async () => {
+  assert(Player.WALL_MARGIN < 0.5,
+    `margin ${Player.WALL_MARGIN} leaves no gap in a 1.0-wide corridor`);
+
+  const p = await (async () => { const pl = new Player(makeScene(), config); await pl.ready; return pl; })();
+  const STEP = 0.1;
+  for (const level of [1, 2, 3]) {
+    for (const seed of [null, 1, 42, 1234, 99999]) {
+      GameState.currentLevel = level;
+      GameState.hasWon = false;
+      const maze = new MazeEngine(makeScene(), config);
+      await maze.generate(seed);
+      const size = Math.max(maze.width, maze.height);
+      const key = (i, j) => `${i},${j}`;
+      const free = (x, z) => !p.checkCollision(x, z, maze.walls);
+      const start = { x: 1, z: 1 };
+      const seen = new Set([key(Math.round(start.x / STEP), Math.round(start.z / STEP))]);
+      const queue = [start];
+      let reached = false;
+      while (queue.length && !reached) {
+        const { x, z } = queue.shift();
+        if (Math.hypot(x - maze.goal.x, z - maze.goal.z) < 0.75) { reached = true; break; }
+        for (const [dx, dz] of [[STEP, 0], [-STEP, 0], [0, STEP], [0, -STEP]]) {
+          const nx = +(x + dx).toFixed(4), nz = +(z + dz).toFixed(4);
+          if (nx < 0 || nz < 0 || nx > size || nz > size) continue;
+          const k = key(Math.round(nx / STEP), Math.round(nz / STEP));
+          if (seen.has(k)) continue;
+          if (!free(nx, nz)) continue;
+          seen.add(k);
+          queue.push({ x: nx, z: nz });
+        }
+      }
+      assert(reached, `level ${level} seed ${seed}: goal unreachable with radius ${Player.WALL_MARGIN}`);
+    }
+  }
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
