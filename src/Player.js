@@ -1,6 +1,10 @@
 import GameState from './GameState.js';
 
 export class Player {
+  // Half-width of the avatar in cells (measured from the GLB: 0.704 x 0.712).
+  // Slightly under the visual radius so the mesh never sinks into a wall.
+  static WALL_MARGIN = 0.35;
+
   constructor(scene, config) {
     this.scene = scene;
     this.config = config;
@@ -99,10 +103,16 @@ export class Player {
     }
   }
 
+  // The player was a collision *point* (radius 0) while the avatar mesh is
+  // ~0.71 wide, so the body visibly overlapped walls — worst inside corners
+  // where it pressed against two of them. WALL_MARGIN keeps the logical body
+  // inside the visual one without changing solvability: corridors are 1.0 wide
+  // and 2*0.35 = 0.7 still fits, so every generated maze stays traversable.
   checkCollision(x, z, walls) {
+    const r = this.constructor.WALL_MARGIN;
     return walls.some(wall => {
-      return x > wall.x - 0.5 && x < wall.x + 0.5 &&
-             z > wall.z - 0.5 && z < wall.z + 0.5;
+      return x > wall.x - 0.5 - r && x < wall.x + 0.5 + r &&
+             z > wall.z - 0.5 - r && z < wall.z + 0.5 + r;
     });
   }
 }
