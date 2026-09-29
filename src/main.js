@@ -10,6 +10,7 @@ import { FrameGate } from './FrameGate.js';
 import { CameraRig } from './CameraRig.js';
 import { resolveCatches } from './Sentinel.js';
 import { dailySeed } from './DailyChallenge.js';
+import { Scoring } from './Scoring.js';
 import { NitroXR, getPlayerId, AudioManager } from './nitroxr.js';
 
 let config;
@@ -41,6 +42,11 @@ const playMusicTrack = async (assetId, options = {}) => {
 // Seconds of post-catch invulnerability.
 const CAUGHT_GRACE = 2;
 
+// Run timer. The old formula used `Date.now() - GameState.startTime`, where
+// startTime was set when the GameState singleton was constructed at module
+// load - so the clock ran through boot, asset fetches and level generation.
+const scoring = new Scoring();
+
 // Daily Challenge. The seeded generator existed but nothing ever called it,
 // so the Mission Script's "same date, same maze" criterion was unreachable.
 let dailyActive = false;
@@ -50,6 +56,7 @@ async function startDailyChallenge() {
   dailyActive = true;
   GameState.currentLevel = 1;
   GameState.hasWon = false;
+  scoring.reset(); // a new attempt is a new run, not a continuation
   await initLevel(seed);
   if (hud) hud.flash(`Daily Challenge — day ${seed}`);
   console.log(`Daily Challenge: seed ${seed}`);
@@ -141,6 +148,9 @@ async function initLevel(seed = null) {
 async function gameLoop(input) {
   if (!config) return;
   if (GameState.isGameOver()) return; // Victory: stop the loop
+  // Start on the first playable frame, and only once: a level change calls
+  // initLevel() but must not restart the clock.
+  scoring.start();
 
   // Edge-triggered toggles: holding the key must not strobe modes.
   const togglePressed = input.toggleEditor && !gameLoop._prevToggle;
@@ -223,8 +233,11 @@ async function gameLoop(input) {
       // No victory stinger is registered yet; `loop:false` on an existing
       // track would also stop the music when the stinger ends.
       await playMusicTrack('maze_awareness', { category: 'music', volume: 0.35, fade: 1 });
-      const finalScore = hud.steps + Math.floor((Date.now() - GameState.startTime) / 1000);
-      await CloudLeaderboard.submitScore(playerId, finalScore);
+      // Score IS the elapsed run time: a time trial ranks fastest-first via
+      // the ascending leaderboard. Steps ride along as display metadata and
+      // are deliberately not added in.
+      const finalScore = scoring.finalSeconds();
+      await CloudLeaderboard.submitScore(playerId, finalScore, undefined, hud.steps);
       try {
         await ghosts.uploadGhost(playerId);
       } catch (e) {
