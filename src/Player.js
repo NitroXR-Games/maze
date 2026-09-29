@@ -62,7 +62,12 @@ export class Player {
 
   // v2 scheme: moveX/moveZ translate relative to facing (strafe included),
   // turnLeft/turnRight rotate. Analog magnitudes double as variable speed.
-  update(input, walls) {
+  //
+  // `heading` overrides the movement basis. In XR the caller passes the
+  // headset's yaw (Scene.getViewYaw) so W moves where you are LOOKING rather
+  // than where the avatar happens to point. Omitted on desktop, where avatar
+  // and view are locked together by the chase camera.
+  update(input, walls, heading = null) {
     if (GameState.isGameOver() || !this.entity) return;
 
     // Frame-rate independent: speeds are defined per 60fps frame.
@@ -81,8 +86,9 @@ export class Player {
       turn = (input.turnRight ? 1 : 0) - (input.turnLeft ? 1 : 0);
     }
 
-    const fx = Math.sin(this.rotation);
-    const fz = Math.cos(this.rotation);
+    const basis = heading === null || heading === undefined ? this.rotation : heading;
+    const fx = Math.sin(basis);
+    const fz = Math.cos(basis);
     // Right-hand basis: right = up x forward. These were briefly "corrected" to
     // (fz, -fx), which is the left vector and inverted A/D — the chase camera
     // had been mis-rotated at the same time, which hid it.

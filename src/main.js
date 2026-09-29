@@ -158,7 +158,10 @@ async function gameLoop(input) {
       hud.flash('Cell edited');
     }
   } else if (!camRig.blocksMovement) {
-    player.update(input, maze.walls);
+    // In XR, translate along the headset's heading so W moves where you are
+    // looking, not where the avatar points. Desktop keeps the avatar basis.
+    const heading = scene.isPresentingXR?.() ? scene.getViewYaw() : null;
+    player.update(input, maze.walls, heading);
   }
 
   // Steps are whole cells travelled, not frames (frame-rate independent).
