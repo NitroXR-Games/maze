@@ -158,6 +158,15 @@ async function gameLoop(input) {
   // Edge-detected here: a held key would otherwise re-save 60x a second.
   const savePressed = input.saveLayout && !gameLoop._prevSave;
   const loadPressed = input.loadLayout && !gameLoop._prevLoad;
+  // Edge-detected: a held key would otherwise strobe the UI 60x a second.
+  const hudPressed = input.toggleHud && !gameLoop._prevHud;
+  gameLoop._prevHud = input.toggleHud;
+
+  if (hudPressed) {
+    const shown = hud.toggleVisible();
+    // Only flash when the HUD is coming back, otherwise the flash is invisible.
+    if (shown) hud.flash('UI shown');
+  }
   gameLoop._prevToggle = input.toggleEditor;
   gameLoop._prevAvatar = input.changeAvatar;
   gameLoop._prevSave = input.saveLayout;
