@@ -1,10 +1,18 @@
 // DOM-overlay HUD. The live SDK has no 3D text primitives, so the HUD renders
 // as an HTML overlay in browsers and silently no-ops headless (tests).
+// Remembered across reloads, and shared by the HUD overlay and the page's
+// debug chrome (header, console mirror, key readout) so H is one switch
+// rather than several that can disagree.
+const VIS_KEY = 'nitro_maze_hud_visible';
+
 export class HUD {
   constructor() {
     this.steps = 0;
     this.startTime = Date.now();
     this.isDOM = typeof document !== 'undefined';
+    // Hiding the HUD is a presentation choice and must never affect scoring:
+    // recordStep() is called from the game loop, not from update().
+    this.visible = this._readPreference();
 
     if (this.isDOM) {
       this.root = document.createElement('div');
@@ -16,7 +24,7 @@ export class HUD {
       this.helpEl.style.cssText = 'margin-top:6px;font-size:0.75rem;opacity:0.8;';
       // Player-facing only. Editor/avatar tools are shown separately so the
       // help line describes the game instead of debug affordances.
-      this.helpEl.textContent = 'Move: WASD/arrows · Turn: Q/E · View: V · Daily: N · Log: L';
+      this.helpEl.textContent = 'Move: WASD/arrows · Turn: Q/E · View: V · Daily: N · Log: L · Hide UI: H';
       this.teleEl = document.createElement('div');
       this.teleEl.style.cssText = 'margin-top:6px;font-size:0.75rem;opacity:0.8;';
       this.viewEl = document.createElement('div');
@@ -38,6 +46,9 @@ export class HUD {
       this.victoryEl.style.cssText = 'position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);z-index:11;display:none;font-family:monospace;font-size:2rem;color:gold;background:rgba(0,0,0,0.75);padding:24px 48px;border:2px solid gold;border-radius:12px;';
       this.victoryEl.textContent = 'MAZE COMPLETE!';
       document.body.appendChild(this.victoryEl);
+
+      // Honour a previously hidden HUD on load.
+      this._applyVisibility();
 
       // Catch feedback: previously the player was silently teleported to the
       // start with no explanation of what happened.
@@ -95,6 +106,9 @@ export class HUD {
     this._lastFrame = now;
     const elapsed = Math.floor((now - this.startTime) / 1000);
     if (!this.isDOM) return;
+    // Skipping the writes keeps a hidden HUD off the render path. `_lastFrame`
+    // and `_fps` above still update, so re-showing does not report a bogus FPS.
+    if (!this.visible) return;
     this.stepEl.textContent = `Steps: ${this.steps}`;
     this.timerEl.textContent = `Time: ${elapsed}s`;
     try {
@@ -133,6 +147,47 @@ export class HUD {
     }
     this._lastPos = { x: pos.x, z: pos.z };
   }
+
+  // localStorage is absent headless and can throw in private modes, so every
+  // access is guarded - a broken preference store must not break the game.
+  _readPreference() {
+    try {
+      return localStorage.getItem(VIS_KEY) !== '0';
+    } catch {
+      return true; // default to visible
+    }
+  }
+
+  _writePreference() {
+    try {
+      localStorage.setItem(VIS_KEY, this.visible ? '1' : '0');
+    } catch {
+      /* preference simply will not persist */
+    }
+  }
+
+  // The page's debug chrome lives in index.html, outside this class. Toggling a
+  // body class keeps the two in sync with one source of truth.
+  _applyVisibility() {
+    if (!this.isDOM) return;
+    this.root.style.display = this.visible ? 'block' : 'none';
+    document.body?.classList.toggle('hud-hidden', !this.visible);
+  }
+
+  // Returns the new visibility. Not edge-detected here: the caller owns that,
+  // matching toggleEditor.
+  setVisible(on) {
+    this.visible = !!on;
+    this._writePreference();
+    this._applyVisibility();
+    return this.visible;
+  }
+
+  toggleVisible() {
+    return this.setVisible(!this.visible);
+  }
+
+  // Victory is a game state, not debug chrome, so it survives hiding the HUD.
 
   showVictory() {
     if (this.isDOM) this.victoryEl.style.display = 'block';
