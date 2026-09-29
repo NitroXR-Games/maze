@@ -8,14 +8,13 @@ export class MazeEngine {
     this.walls = [];
     this.sentinels = [];
     this.goal = null;
-    this.currentTheme = 'standard';
-    this.themes = {
-      standard: { wall: 'maze_wall_concrete', goal: 'maze_goal_portal', floor: 'maze_floor_tile' },
-      neon: { wall: 'nitro_neon_blue', goal: 'nitro_neon_pink', floor: 'nitro_black_reflective' },
-      ruins: { wall: 'nitro_stone_moss', goal: 'nitro_ancient_torch', floor: 'nitro_dirt_path' }
-    };
-    // Only `standard` resolves against the live registry today; neon/ruins
-    // fall back to primitives until their assets are generated (see ASSETS.md).
+    // Asset ids used for the maze. Themes were removed deliberately: the
+    // neon/ruins sets point at registry entries that do not exist, and the
+    // runtime's entity.update({material}) only assigns a field — it never
+    // touches the mesh — so a theme switch would have been a visible no-op.
+    // Add real assets first, then reintroduce them here.
+    this.wallModel = 'maze_wall_concrete';
+    this.goalModel = 'maze_goal_portal';
 
     // Sentinel wave system: periodic active/inactive cycles so the player
     // gets windows of safety. Durations are in seconds.
@@ -25,18 +24,6 @@ export class MazeEngine {
       activeDuration: 20,   // seconds sentinels hunt
       cooldownDuration: 15, // seconds they vanish
     };
-  }
-
-  setTheme(themeId) {
-    if (!this.themes[themeId]) return false;
-    this.currentTheme = themeId;
-    const theme = this.themes[themeId];
-    // Entities can be missing (scene cleared by the editor), so guard lookups.
-    this.walls.forEach(wall => {
-      this.scene.getEntity(`wall_${wall.x}_${wall.z}`)?.update({ material: theme.wall });
-    });
-    this.scene.getEntity('goal')?.update({ material: theme.goal });
-    return true;
   }
 
   async generateGoal() {
@@ -52,7 +39,7 @@ export class MazeEngine {
     }
     await this.scene.createEntity('goal', {
       position: [this.goal.x, 0.5, this.goal.z],
-      model: this.themes[this.currentTheme].goal
+      model: this.goalModel
     });
   }
 
@@ -142,7 +129,7 @@ export class MazeEngine {
     this.walls.push({ x, z });
     await this.scene.createEntity(`wall_${x}_${z}`, {
       position: [x, 0.5, z],
-      model: this.themes[this.currentTheme].wall,
+      model: this.wallModel,
       physics: { isStatic: true }
     });
   }

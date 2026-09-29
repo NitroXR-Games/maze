@@ -16,7 +16,7 @@ export class HUD {
       this.helpEl.style.cssText = 'margin-top:6px;font-size:0.75rem;opacity:0.8;';
       // Player-facing only. Editor/avatar tools are shown separately so the
       // help line describes the game instead of debug affordances.
-      this.helpEl.textContent = 'Move: WASD/arrows · Turn: Q/E · View: V · Log: /';
+      this.helpEl.textContent = 'Move: WASD/arrows · Turn: Q/E · View: V · Daily: N · Log: L';
       this.teleEl = document.createElement('div');
       this.teleEl.style.cssText = 'margin-top:6px;font-size:0.75rem;opacity:0.8;';
       this.viewEl = document.createElement('div');

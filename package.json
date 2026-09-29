@@ -4,13 +4,13 @@
   "description": "Competitive 3D maze game for the NitroXR ecosystem",
   "type": "module",
   "scripts": {
-    "test": "node test/smoke.mjs && node test/controls.mjs && node test/audit.mjs",
+    "test": "node test/smoke.mjs && node test/controls.mjs && node test/audit.mjs && node test/console-toggle.mjs",
     "build": "esbuild src/main.js --bundle --format=esm --outfile=maze.js",
     "dev": "npm run build && python3 -m http.server 8080",
-    "check": "node --check src/nitroxr.js && node --check src/main.js && node --check src/MazeEngine.js && node --check src/Player.js && node --check src/GameState.js && node --check src/HUD.js && node --check src/CloudLeaderboard.js && node --check src/GhostManager.js && node --check src/AvatarSystem.js && node --check src/LevelEditor.js && node --check src/Sentinel.js && node --check test/smoke.mjs && node --check test/controls.mjs && node --check test/audit.mjs && node --check src/FrameGate.js && node --check src/CameraRig.js"
+    "check": "node --check src/nitroxr.js && node --check src/main.js && node --check src/MazeEngine.js && node --check src/Player.js && node --check src/GameState.js && node --check src/HUD.js && node --check src/CloudLeaderboard.js && node --check src/GhostManager.js && node --check src/AvatarSystem.js && node --check src/LevelEditor.js && node --check src/Sentinel.js && node --check test/smoke.mjs && node --check test/controls.mjs && node --check test/audit.mjs && node --check test/console-toggle.mjs && node --check src/FrameGate.js && node --check src/CameraRig.js && node --check src/DailyChallenge.js"
   },
   "dependencies": {
-    "@nitroxr/runtime": "^0.2.6"
+    "@nitroxr/runtime": "^0.2.7"
   },
   "devDependencies": {
     "esbuild": "^0.20.0"
