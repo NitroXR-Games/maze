@@ -75,6 +75,12 @@
         }
         .header h1 { margin: 0 0 6px 0; font-size: 1.1rem; }
         .hint { font-size: 0.7rem; opacity: 0.7; margin-top: 4px; }
+        .key-readout {
+            font-size: 0.65rem;
+            opacity: 0.5;
+            margin-top: 3px;
+            color: #7dfcff;
+        }
         .status-pill {
             background: #00ff41;
             color: #000;
@@ -89,22 +95,33 @@
     <div class="header">
         <h1>NITROXR MAZE DEBUGGER</h1>
         <span class="status-pill">LIVE RUNTIME (cloud.nitroxr.com)</span>
-        <div class="hint">V — change view &nbsp;·&nbsp; / — toggle console</div>
+        <div class="hint">V — change view &nbsp;·&nbsp; L or / — toggle console</div>
+        <div class="key-readout" id="key-readout">key: —</div>
     </div>
-    <button id="console-toggle" type="button" title="Toggle console (/)">LOG <span id="log-count">0</span></button>
+    <button id="console-toggle" type="button" title="Toggle console (L or /)">LOG <span id="log-count">0</span></button>
     <div id="console" class="hidden"></div>
 
     <script>
-        // On-screen console mirror. Starts collapsed so it never covers the
-        // maze, with a clickable toggle plus / and ` (backtick) as keys —
-        // plenty of keyboards hide the backtick behind Fn, so the button and
-        // / are the reliable paths.
+    (() => {
+        // On-screen console mirror. Starts collapsed so it never covers the maze.
+        // The LOG button is the dependable path; the keys are a convenience.
         const consoleDiv = document.getElementById('console');
         const toggleBtn = document.getElementById('console-toggle');
         const logCount = document.getElementById('log-count');
+        const keyReadout = document.getElementById('key-readout');
         const originalLog = console.log;
         const MAX_ENTRIES = 200; // cap the mirror so a chatty loop can't grow it forever
         let unread = 0;
+
+        // `/` and backtick are browser-adjacent: Firefox and Safari claim `/`
+        // for Quick Find, and on non-US layouts the key that prints `/` can
+        // report a completely different KeyboardEvent.code. So match on
+        // `key` as well as `code`, and offer `L` as a key no browser steals.
+        const TOGGLE_CODES = new Set(['Backquote', 'Slash', 'KeyL']);
+        const isToggleKey = (e) =>
+            TOGGLE_CODES.has(e.code) ||
+            e.key === '/' || e.key === '`' ||
+            (typeof e.key === 'string' && e.key.toLowerCase() === 'l');
 
         function setConsoleOpen(open) {
             consoleDiv.classList.toggle('hidden', !open);
@@ -114,10 +131,11 @@
             toggleBtn.classList.toggle('active', open);
         }
 
-        console.log = function(...args) {
+        console.log = function (...args) {
             const entry = document.createElement('div');
             entry.className = 'log-entry';
-            entry.innerText = `[${new Date().toLocaleTimeString()}] ${args.join(' ')}`;
+            entry.innerText = `[${new Date().toLocaleTimeString()}] ${args.map(a =>
+                (typeof a === 'object' && a !== null) ? JSON.stringify(a) : String(a)).join(' ')}`;
             consoleDiv.appendChild(entry);
             while (consoleDiv.childElementCount > MAX_ENTRIES) {
                 consoleDiv.removeChild(consoleDiv.firstElementChild);
@@ -132,14 +150,19 @@
         };
 
         toggleBtn.addEventListener('click', () => setConsoleOpen(consoleDiv.classList.contains('hidden')));
-        // Game keys (WASD/Q/E/C/T/V) never collide with these.
+
+        // Capture phase, so this runs ahead of the SDK InputBridge and anything
+        // else that might stop propagation. The readout makes the difference
+        // between "the browser never delivered the key" and "the handler ran"
+        // visible at a glance instead of guesswork.
         window.addEventListener('keydown', (e) => {
-            if (e.code === 'Backquote' || e.code === 'Slash') {
-                e.preventDefault();
-                e.stopPropagation();
-                setConsoleOpen(consoleDiv.classList.contains('hidden'));
-            }
-        });
+            if (keyReadout) keyReadout.textContent = `key: ${e.code || e.key || '?'}${e.repeat ? ' (repeat)' : ''}`;
+            if (!isToggleKey(e)) return;
+            if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+            e.preventDefault();
+            setConsoleOpen(consoleDiv.classList.contains('hidden'));
+        }, true);
+    })();
     </script>
     <script type="module" src="./maze.js"></script>
 </body>

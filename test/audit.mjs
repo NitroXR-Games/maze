@@ -429,5 +429,32 @@ await check('catch recalls the sentinel off the spawn cell', async () => {
   assert(!s.checkCollision({ x: 1, z: 1 }), 'still able to catch at spawn');
 });
 
+// A12: the Daily Challenge's acceptance criterion is "two users on the same
+// date get the same maze". The seeded generator existed but nothing ever
+// called it; now it is reachable, so the criterion is testable.
+await check('daily seed is stable per UTC day and differs across days', async () => {
+  const { dailySeed } = await import('../src/DailyChallenge.js');
+
+  const a = dailySeed(new Date('2026-09-28T01:00:00Z'));
+  const b = dailySeed(new Date('2026-09-28T23:59:59Z'));
+  const c = dailySeed(new Date('2026-09-29T12:00:00Z'));
+  assert(a === b, `same UTC day must share a seed (${a} vs ${b})`);
+  assert(a !== c, 'consecutive days must differ');
+});
+
+await check('a seeded maze is reproducible across instances', async () => {
+  const layout = async (seed) => {
+    const e = new MazeEngine(makeScene(), config);
+    GameState.currentLevel = 1;
+    await e.generate(seed);
+    return e.walls.map(w => `${w.x},${w.z}`).join('|');
+  };
+  const a = await layout(12345);
+  const b = await layout(12345);
+  const c = await layout(54321);
+  assert(a === b, 'same seed produced two different mazes');
+  assert(a !== c, 'different seeds produced the same maze');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
