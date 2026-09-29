@@ -9,6 +9,7 @@ import GameState from './GameState.js';
 import { FrameGate } from './FrameGate.js';
 import { CameraRig } from './CameraRig.js';
 import { resolveCatches } from './Sentinel.js';
+import { dailySeed } from './DailyChallenge.js';
 import { NitroXR, getPlayerId, AudioManager } from './nitroxr.js';
 
 let config;
@@ -39,6 +40,20 @@ const playMusicTrack = async (assetId, options = {}) => {
 
 // Seconds of post-catch invulnerability.
 const CAUGHT_GRACE = 2;
+
+// Daily Challenge. The seeded generator existed but nothing ever called it,
+// so the Mission Script's "same date, same maze" criterion was unreachable.
+let dailyActive = false;
+
+async function startDailyChallenge() {
+  const seed = dailySeed();
+  dailyActive = true;
+  GameState.currentLevel = 1;
+  GameState.hasWon = false;
+  await initLevel(seed);
+  if (hud) hud.flash(`Daily Challenge — day ${seed}`);
+  console.log(`Daily Challenge: seed ${seed}`);
+}
 
 async function start() {
   scene = new NitroXR.Scene();
@@ -94,6 +109,13 @@ function bindViewToggle() {
     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     camRig.cycle();
     hud.setView(camRig.label);
+  });
+
+  // N starts the Daily Challenge (shared seed for the UTC day).
+  window.addEventListener('keydown', e => {
+    if (e.code !== 'KeyN' || e.repeat) return;
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    startDailyChallenge().catch(err => console.error('Daily challenge failed:', err));
   });
 }
 
