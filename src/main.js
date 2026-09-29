@@ -145,12 +145,35 @@ async function gameLoop(input) {
   // Edge-triggered toggles: holding the key must not strobe modes.
   const togglePressed = input.toggleEditor && !gameLoop._prevToggle;
   const avatarPressed = input.changeAvatar && !gameLoop._prevAvatar;
+  // Edge-detected here: a held key would otherwise re-save 60x a second.
+  const savePressed = input.saveLayout && !gameLoop._prevSave;
+  const loadPressed = input.loadLayout && !gameLoop._prevLoad;
   gameLoop._prevToggle = input.toggleEditor;
   gameLoop._prevAvatar = input.changeAvatar;
+  gameLoop._prevSave = input.saveLayout;
+  gameLoop._prevLoad = input.loadLayout;
 
   if (togglePressed) {
     editor.toggleEditMode();
     hud.setEditMode(editor.isEditMode);
+  }
+
+  // Layout save/load are allowed outside edit mode too: a layout is worth
+  // keeping even if the player never entered the editor.
+  if (savePressed || loadPressed) {
+    const layoutId = editor.defaultLayoutId || 'default';
+    const result = savePressed
+      ? await editor.saveLayout(layoutId)
+      : await editor.loadLayout(layoutId);
+    if (!result.ok) {
+      hud.flash(`Layout ${savePressed ? 'save' : 'load'} failed: ${result.reason}`);
+    } else if (savePressed) {
+      hud.flash(result.cloud
+        ? `Layout "${layoutId}" saved to Cloud`
+        : `Layout "${layoutId}" saved locally (Cloud unavailable)`);
+    } else {
+      hud.flash(`Layout "${layoutId}" loaded from ${result.source}`);
+    }
   }
 
   if (editor.isEditMode) {

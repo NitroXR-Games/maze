@@ -25,7 +25,7 @@ export class HUD {
       // console line in a now-collapsed drawer, so it looked like nothing happened.
       this.editEl = document.createElement('div');
       this.editEl.style.cssText = 'display:none;margin-top:4px;font-size:0.8rem;color:#ffd75f;';
-      this.editEl.textContent = 'EDIT MODE — walk over a cell and press E to add/remove a wall · T to exit';
+      this.editEl.textContent = 'EDIT MODE — E add/remove wall · K save layout · O load layout · T exit';
       this.root.appendChild(this.stepEl);
       this.root.appendChild(this.timerEl);
       this.root.appendChild(this.viewEl);
@@ -75,7 +75,7 @@ export class HUD {
     this._flashTimer = setTimeout(() => {
       this.editEl.style.display = this.editMode ? 'block' : 'none';
       if (this.editMode) {
-        this.editEl.textContent = 'EDIT MODE — walk over a cell and press E to add/remove a wall · T to exit';
+        this.editEl.textContent = 'EDIT MODE — E add/remove wall · K save layout · O load layout · T exit';
       }
     }, 1200);
   }
