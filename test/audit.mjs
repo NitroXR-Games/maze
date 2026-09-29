@@ -456,5 +456,74 @@ await check('a seeded maze is reproducible across instances', async () => {
   assert(a !== c, 'different seeds produced the same maze');
 });
 
+// A13: the player gained a collision radius. This must NOT make any generated
+// maze unsolvable — corridors are 1.0 wide, so the margin has to stay under
+// 0.5. Proven by reachability under the real checkCollision, not asserted.
+await check('every generated maze stays solvable with the collision radius', async () => {
+  assert(Player.WALL_MARGIN < 0.5,
+    `margin ${Player.WALL_MARGIN} leaves no gap in a 1.0-wide corridor`);
+
+  const p = await (async () => { const pl = new Player(makeScene(), config); await pl.ready; return pl; })();
+  const STEP = 0.1;
+  for (const level of [1, 2, 3]) {
+    for (const seed of [null, 1, 42, 1234, 99999]) {
+      GameState.currentLevel = level;
+      GameState.hasWon = false;
+      const maze = new MazeEngine(makeScene(), config);
+      await maze.generate(seed);
+      const size = Math.max(maze.width, maze.height);
+      const key = (i, j) => `${i},${j}`;
+      const free = (x, z) => !p.checkCollision(x, z, maze.walls);
+      const start = { x: 1, z: 1 };
+      const seen = new Set([key(Math.round(start.x / STEP), Math.round(start.z / STEP))]);
+      const queue = [start];
+      let reached = false;
+      while (queue.length && !reached) {
+        const { x, z } = queue.shift();
+        if (Math.hypot(x - maze.goal.x, z - maze.goal.z) < 0.75) { reached = true; break; }
+        for (const [dx, dz] of [[STEP, 0], [-STEP, 0], [0, STEP], [0, -STEP]]) {
+          const nx = +(x + dx).toFixed(4), nz = +(z + dz).toFixed(4);
+          if (nx < 0 || nz < 0 || nx > size || nz > size) continue;
+          const k = key(Math.round(nx / STEP), Math.round(nz / STEP));
+          if (seen.has(k)) continue;
+          if (!free(nx, nz)) continue;
+          seen.add(k);
+          queue.push({ x: nx, z: nz });
+        }
+      }
+      assert(reached, `level ${level} seed ${seed}: goal unreachable with radius ${Player.WALL_MARGIN}`);
+    }
+  }
+});
+
+async function mkPlayerAt(rot) {
+  const pl = new Player(makeScene(), config);
+  await pl.ready;
+  pl.position = { x: 5, z: 5 };
+  pl.rotation = rot;
+  return pl;
+}
+
+// A14: XR locomotion must follow the HEADSET, not the avatar. The avatar's
+// rotation is unrelated to where you are looking once a headset is driving
+// the camera, so driving movement from it is the classic VR nausea bug.
+await check('an explicit heading overrides the avatar basis for movement', async () => {
+  const p = await mkPlayerAt(Math.PI);           // avatar faces -z
+  // Headset turned a quarter-turn to face +x (east).
+  p.update(input({ moveZ: -1 }), [], Math.PI / 2);
+  assert(p.position.x > 5 && Math.abs(p.position.z - 5) < 1e-9,
+    `W with head yaw should move +x, got ${p.position.x},${p.position.z}`);
+
+  // And the avatar's own facing must NOT have been mutated by looking around.
+  assert(p.rotation === Math.PI, 'looking around must not spin the avatar');
+});
+
+await check('omitting heading keeps the avatar basis (desktop behaviour)', async () => {
+  const p = await mkPlayerAt(Math.PI);
+  p.update(input({ moveZ: -1 }), []);          // no heading
+  assert(Math.abs(p.position.z - 5) > 0.01 && Math.abs(p.position.x - 5) < 1e-9,
+    `desktop W should move -z, got ${p.position.x},${p.position.z}`);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

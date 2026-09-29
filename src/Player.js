@@ -1,6 +1,10 @@
 import GameState from './GameState.js';
 
 export class Player {
+  // Half-width of the avatar in cells (measured from the GLB: 0.704 x 0.712).
+  // Slightly under the visual radius so the mesh never sinks into a wall.
+  static WALL_MARGIN = 0.35;
+
   constructor(scene, config) {
     this.scene = scene;
     this.config = config;
@@ -58,7 +62,12 @@ export class Player {
 
   // v2 scheme: moveX/moveZ translate relative to facing (strafe included),
   // turnLeft/turnRight rotate. Analog magnitudes double as variable speed.
-  update(input, walls) {
+  //
+  // `heading` overrides the movement basis. In XR the caller passes the
+  // headset's yaw (Scene.getViewYaw) so W moves where you are LOOKING rather
+  // than where the avatar happens to point. Omitted on desktop, where avatar
+  // and view are locked together by the chase camera.
+  update(input, walls, heading = null) {
     if (GameState.isGameOver() || !this.entity) return;
 
     // Frame-rate independent: speeds are defined per 60fps frame.
@@ -77,8 +86,9 @@ export class Player {
       turn = (input.turnRight ? 1 : 0) - (input.turnLeft ? 1 : 0);
     }
 
-    const fx = Math.sin(this.rotation);
-    const fz = Math.cos(this.rotation);
+    const basis = heading === null || heading === undefined ? this.rotation : heading;
+    const fx = Math.sin(basis);
+    const fz = Math.cos(basis);
     // Right-hand basis: right = up x forward. These were briefly "corrected" to
     // (fz, -fx), which is the left vector and inverted A/D — the chase camera
     // had been mis-rotated at the same time, which hid it.
@@ -99,10 +109,16 @@ export class Player {
     }
   }
 
+  // The player was a collision *point* (radius 0) while the avatar mesh is
+  // ~0.71 wide, so the body visibly overlapped walls — worst inside corners
+  // where it pressed against two of them. WALL_MARGIN keeps the logical body
+  // inside the visual one without changing solvability: corridors are 1.0 wide
+  // and 2*0.35 = 0.7 still fits, so every generated maze stays traversable.
   checkCollision(x, z, walls) {
+    const r = this.constructor.WALL_MARGIN;
     return walls.some(wall => {
-      return x > wall.x - 0.5 && x < wall.x + 0.5 &&
-             z > wall.z - 0.5 && z < wall.z + 0.5;
+      return x > wall.x - 0.5 - r && x < wall.x + 0.5 + r &&
+             z > wall.z - 0.5 - r && z < wall.z + 0.5 + r;
     });
   }
 }
