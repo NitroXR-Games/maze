@@ -62,6 +62,16 @@ export class LevelEditor {
     return this.mazeEngine.walls.map(w => ({ x: w.x, z: w.z }));
   }
 
+  // A missing method is a version problem, not a network problem. Reporting
+  // "Cloud unavailable" for an old bundle sends the player chasing their
+  // connection instead of the real cause.
+  static describeFailure(e) {
+    if (e instanceof TypeError) {
+      return 'The bundled NitroXR runtime is too old for cloud layouts - reinstall dependencies';
+    }
+    return e?.message || 'Cloud request failed';
+  }
+
   // Defensive: the Worker validates too, but a layout is replayed into
   // addWall(x, z) and a stray float would offset the mesh off-grid forever.
   static sanitiseCells(cells) {
@@ -121,7 +131,7 @@ export class LevelEditor {
       await NitroXR.Cloud.saveLayout(layoutId, cells, this.gameId);
       cloud = true;
     } catch (e) {
-      reason = e.message;
+      reason = LevelEditor.describeFailure(e);
       console.warn(`Layout ${layoutId} not saved to Cloud:`, e);
     }
     const local = this._writeLocal(layoutId, cells);
@@ -139,7 +149,7 @@ export class LevelEditor {
       cells = LevelEditor.extractCells(await NitroXR.Cloud.getLayout(layoutId, this.gameId));
       if (cells) source = 'cloud';
     } catch (e) {
-      cloudError = e.message;
+      cloudError = LevelEditor.describeFailure(e);
       console.warn(`Layout ${layoutId} unreachable:`, e);
     }
     if (!cells) {
@@ -172,7 +182,7 @@ export class LevelEditor {
       await NitroXR.Cloud.deleteLayout(layoutId, this.gameId);
       result.cloud = true;
     } catch (e) {
-      result.reason = e.message;
+      result.reason = LevelEditor.describeFailure(e);
     }
     try {
       localStorage.removeItem(this.layoutKey(layoutId));

@@ -205,5 +205,32 @@ await check('deleteLayout clears both copies and tolerates a cloud failure', asy
   } finally { restore(); }
 });
 
+
+await check('a missing runtime method is reported as a version problem, not the network', async () => {
+  // This is the bug that shipped: runtime 0.2.8 has no Cloud.saveLayout, the
+  // call throws a TypeError, and the old code reported it as "Cloud
+  // unavailable" - pointing the player at their connection instead of the
+  // dependency that was actually stale.
+  const msg = LevelEditor.describeFailure(new TypeError('NitroXR.Cloud.saveLayout is not a function'));
+  assert(/too old/i.test(msg), `TypeError reported as: ${msg}`);
+
+  const net = LevelEditor.describeFailure(new Error('Failed to fetch'));
+  assert(/Failed to fetch/.test(net), `a real network error was swallowed: ${net}`);
+
+  const ls = installLocalStorage();
+  const h = harness();
+  const orig = NitroXR.Cloud.saveLayout;
+  delete NitroXR.Cloud.saveLayout;   // simulate the old bundle
+  try {
+    const r = await h.editor.saveLayout('stale');
+    assert(r.ok === true, 'the work must still be cached locally');
+    assert(r.cloud === false, 'must not claim a cloud save');
+    assert(/too old/i.test(r.reason || ''), `reason was "${r.reason}"`);
+    assert(ls.getItem('nitro_maze_layout_stale'), 'work was lost');
+  } finally {
+    NitroXR.Cloud.saveLayout = orig;
+  }
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
